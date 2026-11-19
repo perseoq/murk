@@ -148,10 +148,13 @@ export class MurkEditor {
   private readonly tabSizeCompartment = new Compartment();
   private readonly indentCompartment = new Compartment();
   private readonly readOnlyCompartment = new Compartment();
+  private readonly spellcheckCompartment = new Compartment();
   private readonly baseExtensions: Extension[];
   private currentTabId: string | null = null;
   private tabSize: number;
   private readOnly = false;
+  private spellcheckEnabled = true;
+  private spellcheckLanguage = "";
 
   constructor(parent: HTMLElement, options: { tabSize: number } & MurkEditorCallbacks) {
     this.callbacks = { onChange: options.onChange, onCursor: options.onCursor };
@@ -187,10 +190,10 @@ export class MurkEditor {
       placeholder("Empieza a escribir en Markdown…"),
       EditorView.contentAttributes.of({
         "aria-label": "Editor de Markdown",
-        spellcheck: "false",
         autocorrect: "off",
         autocapitalize: "off",
       }),
+      this.spellcheckCompartment.of(this.spellcheckAttributes()),
       EditorView.domEventHandlers({
         paste: (event, view) => handleTablePaste(event, view),
       }),
@@ -246,8 +249,19 @@ export class MurkEditor {
           EditorState.readOnly.of(readOnly),
           EditorView.editable.of(!readOnly),
         ]),
+        this.spellcheckCompartment.reconfigure(this.spellcheckAttributes()),
       ],
     });
+  }
+
+  private spellcheckAttributes(): Extension {
+    const attributes: Record<string, string> = {
+      spellcheck: this.spellcheckEnabled ? "true" : "false",
+    };
+    if (this.spellcheckLanguage) {
+      attributes.lang = this.spellcheckLanguage;
+    }
+    return EditorView.contentAttributes.of(attributes);
   }
 
   capture(): EditorCapture {
@@ -289,6 +303,14 @@ export class MurkEditor {
   setTabSize(tabSize: number): void {
     this.tabSize = tabSize;
     this.applyCompartments(this.readOnly);
+  }
+
+  setSpellcheck(enabled: boolean, language = ""): void {
+    this.spellcheckEnabled = enabled;
+    this.spellcheckLanguage = language;
+    this.view.dispatch({
+      effects: this.spellcheckCompartment.reconfigure(this.spellcheckAttributes()),
+    });
   }
 
   scrollToRatio(ratio: number): void {

@@ -91,6 +91,8 @@ pub struct Settings {
     pub pandoc_path: String,
     pub chromium_path: String,
     pub pdf_engine: String,
+    pub spellcheck: bool,
+    pub spellcheck_language: String,
 }
 
 impl Default for Settings {
@@ -105,6 +107,8 @@ impl Default for Settings {
             pandoc_path: String::new(),
             chromium_path: String::new(),
             pdf_engine: "chromium".to_string(),
+            spellcheck: true,
+            spellcheck_language: String::new(),
         }
     }
 }
@@ -131,6 +135,9 @@ impl Settings {
         }
         if self.chromium_path.chars().count() > 500 {
             self.chromium_path = self.chromium_path.chars().take(500).collect();
+        }
+        if self.spellcheck_language.chars().count() > 20 {
+            self.spellcheck_language = self.spellcheck_language.chars().take(20).collect();
         }
         self
     }

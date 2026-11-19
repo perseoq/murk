@@ -69,6 +69,10 @@ class LivePreviewPlugin {
   }
 
   update(update: ViewUpdate): void {
+    if (update.view.composing) {
+      return;
+    }
+
     if (
       update.docChanged ||
       update.selectionSet ||

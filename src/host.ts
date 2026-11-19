@@ -74,6 +74,8 @@ export interface Settings {
   pandocPath: string;
   chromiumPath: string;
   pdfEngine: PdfEngine;
+  spellcheck: boolean;
+  spellcheckLanguage: string;
 }
 
 export interface RecoverySnapshot {
@@ -285,6 +287,20 @@ export const host = {
       return () => undefined;
     }
     return listen<FileChangedEvent>("file:changed", (event) => handler(event.payload));
+  },
+
+  async listenOpenFiles(handler: (paths: string[]) => void): Promise<UnlistenFn> {
+    if (!isDesktop()) {
+      return () => undefined;
+    }
+    return listen<string[]>("app:open", (event) => handler(event.payload));
+  },
+
+  async startupFiles(): Promise<string[]> {
+    if (!isDesktop()) {
+      return [];
+    }
+    return call<string[]>("take_startup_files");
   },
 
   async recentList(): Promise<RecentEntry[]> {

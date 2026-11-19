@@ -134,6 +134,7 @@ export class Shell {
   private openMenuId: string | null = null;
   private lastTitle = "";
   private unlistenFileChanged: (() => void) | null = null;
+  private unlistenOpenFiles: (() => void) | null = null;
   private readonly localWrites = new Map<string, number>();
   private readonly watchTimers = new Map<string, number>();
   private conflictBusy = false;
@@ -179,8 +180,18 @@ export class Shell {
       this.unlistenFileChanged = await host.listenFileChanged((event) => {
         this.queueFileEvent(event);
       });
+      this.unlistenOpenFiles = await host.listenOpenFiles((paths) => {
+        for (const path of paths) {
+          void this.openPath(path);
+        }
+      });
     } catch (error) {
-      console.warn("No se pudo escuchar cambios de archivos", error);
+      console.warn("No se pudo escuchar eventos de archivos", error);
+    }
+
+    const startupFiles = await host.startupFiles().catch(() => []);
+    for (const path of startupFiles) {
+      await this.openPath(path);
     }
 
     this.applySidebarLayout();
@@ -236,6 +247,8 @@ export class Shell {
     this.watchTimers.clear();
     this.unlistenFileChanged?.();
     this.unlistenFileChanged = null;
+    this.unlistenOpenFiles?.();
+    this.unlistenOpenFiles = null;
     this.themeMedia?.removeEventListener("change", this.handleSystemTheme);
     this.themeMedia = null;
     for (const tab of this.workspace.tabs) {
@@ -366,6 +379,7 @@ export class Shell {
         }
       },
     });
+    this.editor.setSpellcheck(this.settings.spellcheck, this.settings.spellcheckLanguage);
 
     this.tabsElement = this.query<HTMLElement>(".tabs");
     this.workspaceElement = this.query<HTMLElement>("#workspace");
@@ -702,6 +716,10 @@ export class Shell {
     }
 
     window.addEventListener("keydown", (event) => {
+      if (event.isComposing) {
+        return;
+      }
+
       if (this.modalLayer.childElementCount > 0) {
         return;
       }
@@ -2680,6 +2698,14 @@ export class Shell {
         <span>Intervalo de autoguardado (segundos)</span>
         <input id="setting-autosave-interval" type="number" min="5" max="600" step="5" />
       </label>
+      <label class="field field-inline">
+        <input id="setting-spellcheck" type="checkbox" />
+        <span>Corrector ortográfico</span>
+      </label>
+      <label class="field">
+        <span>Idioma del corrector</span>
+        <input id="setting-spellcheck-language" type="text" placeholder="es, en-US…" maxlength="20" />
+      </label>
       <label class="field">
         <span>Motor PDF</span>
         <select id="setting-pdf-engine">
@@ -2706,6 +2732,8 @@ export class Shell {
     const pdfEngine = form.querySelector<HTMLSelectElement>("#setting-pdf-engine");
     const pandocPath = form.querySelector<HTMLInputElement>("#setting-pandoc");
     const chromiumPath = form.querySelector<HTMLInputElement>("#setting-chromium");
+    const spellcheck = form.querySelector<HTMLInputElement>("#setting-spellcheck");
+    const spellcheckLanguage = form.querySelector<HTMLInputElement>("#setting-spellcheck-language");
 
     if (theme) theme.value = this.settings.theme;
     if (font) font.value = this.settings.fontFamily;
@@ -2718,6 +2746,8 @@ export class Shell {
     if (pdfEngine) pdfEngine.value = this.settings.pdfEngine;
     if (pandocPath) pandocPath.value = this.settings.pandocPath;
     if (chromiumPath) chromiumPath.value = this.settings.chromiumPath;
+    if (spellcheck) spellcheck.checked = this.settings.spellcheck;
+    if (spellcheckLanguage) spellcheckLanguage.value = this.settings.spellcheckLanguage;
 
     this.openModal({
       title: "Preferencias",
@@ -2740,10 +2770,13 @@ export class Shell {
               pandocPath: pandocPath?.value ?? "",
               chromiumPath: chromiumPath?.value ?? "",
               pdfEngine: (pdfEngine?.value as Settings["pdfEngine"]) ?? "chromium",
+              spellcheck: spellcheck?.checked ?? true,
+              spellcheckLanguage: spellcheckLanguage?.value ?? "",
             });
             this.settings = next;
             applySettings(next);
             this.editor.setTabSize(next.tabSize);
+            this.editor.setSpellcheck(next.spellcheck, next.spellcheckLanguage);
             this.editor.refresh();
             this.configureAutosave();
             this.closeModal();

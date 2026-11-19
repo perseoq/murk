@@ -12,6 +12,8 @@ const mocks = vi.hoisted(() => ({
   watchFile: vi.fn(),
   unwatchFile: vi.fn(),
   listenFileChanged: vi.fn(),
+  listenOpenFiles: vi.fn(),
+  startupFiles: vi.fn(),
   recentList: vi.fn(),
   recentAdd: vi.fn(),
   recentClear: vi.fn(),
@@ -78,6 +80,7 @@ vi.mock("../editor/editor", () => {
 
     setReadOnly(): void {}
     setTabSize(): void {}
+    setSpellcheck(): void {}
     refresh(): void {}
     scrollToRatio(): void {}
     invalidate(): void {}
@@ -117,6 +120,8 @@ vi.mock("../host", () => ({
     watchFile: mocks.watchFile,
     unwatchFile: mocks.unwatchFile,
     listenFileChanged: mocks.listenFileChanged,
+    listenOpenFiles: mocks.listenOpenFiles,
+    startupFiles: mocks.startupFiles,
     recentList: mocks.recentList,
     recentAdd: mocks.recentAdd,
     recentClear: mocks.recentClear,
@@ -159,6 +164,8 @@ describe("Shell · flujo abrir → editar → guardar", () => {
     mocks.watchFile.mockResolvedValue(undefined);
     mocks.unwatchFile.mockResolvedValue(undefined);
     mocks.listenFileChanged.mockResolvedValue(() => undefined);
+    mocks.listenOpenFiles.mockResolvedValue(() => undefined);
+    mocks.startupFiles.mockResolvedValue([]);
     mocks.recentList.mockResolvedValue([]);
     mocks.recentAdd.mockResolvedValue([]);
     mocks.recentClear.mockResolvedValue(undefined);

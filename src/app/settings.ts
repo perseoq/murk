@@ -13,6 +13,8 @@ export const DEFAULT_SETTINGS: Settings = {
   pandocPath: "",
   chromiumPath: "",
   pdfEngine: "chromium",
+  spellcheck: true,
+  spellcheckLanguage: "",
 };
 
 export function normalizeTheme(value: unknown): ThemeMode {
@@ -48,6 +50,9 @@ export function normalizeSettings(input: Partial<Settings> | null | undefined): 
     pandocPath: typeof input?.pandocPath === "string" ? input.pandocPath.slice(0, 500) : "",
     chromiumPath: typeof input?.chromiumPath === "string" ? input.chromiumPath.slice(0, 500) : "",
     pdfEngine: normalizePdfEngine(input?.pdfEngine),
+    spellcheck: typeof input?.spellcheck === "boolean" ? input.spellcheck : true,
+    spellcheckLanguage:
+      typeof input?.spellcheckLanguage === "string" ? input.spellcheckLanguage.slice(0, 20) : "",
   };
 }
 
