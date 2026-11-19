@@ -9,9 +9,10 @@ Actualizado: 2026-11-19.
 | Fase | Estado | Evidencia |
 |---|---|---|
 | **A0** Bootstrap | ✅ completada | commit `943b600`; CI run `44561951766` (frontend y Rust verdes) |
-| **A1–A12** | ⬜ pendientes | — |
+| **A1** Shell | ✅ completada | commit `05f909b`; CI run `44565374891` (18 tests, Rust verde) |
+| **A2–A12** | ⬜ pendientes | — |
 
-**Fases restantes: 12** (A1 a A12).
+**Fases restantes: 11** (A2 a A12).
 
 ## Track 0 — Fundación
 
