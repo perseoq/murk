@@ -2,6 +2,17 @@
 
 Plan de ejecución de Murk dividido en **13 fases agénticas** (A0–A12), agrupadas en 4 tracks. Cada fase está pensada para que un agente la ejecute de principio a fin en **1–3 sesiones**, con tests, commit y matriz de paridad actualizada; si no cumple el gate, no avanza.
 
+## Estado de ejecución
+
+Actualizado: 2026-11-19.
+
+| Fase | Estado | Evidencia |
+|---|---|---|
+| **A0** Bootstrap | ✅ completada | commit `943b600`; CI run `44561951766` (frontend y Rust verdes) |
+| **A1–A12** | ⬜ pendientes | — |
+
+**Fases restantes: 12** (A1 a A12).
+
 ## Track 0 — Fundación
 
 | Fase | Alcance | Depende de | Gate de salida |

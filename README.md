@@ -5,7 +5,7 @@ Editor de Markdown de escritorio con **paridad funcional con Typora** (referenci
 - **Stack:** Tauri v2 + Rust + CodeMirror 6 + TypeScript
 - **Plataforma objetivo:** Linux x86_64 (Fedora primero), con arquitectura portable a Windows/macOS
 - **Licencia:** GNU General Public License v3.0 o posterior (`GPL-3.0-or-later`)
-- **Estado:** especificación. Aún no hay código.
+- **Estado:** fase **A0 completada** (bootstrap Tauri + CI verde). Siguiente: A1 Shell.
 
 > Murk es un proyecto independiente. No está afiliado, patrocinado ni respaldado por Typora ni por Abner Lee. No contiene código, temas, iconos, tipografías ni documentación de Typora.
 
@@ -53,17 +53,34 @@ Ver `specs/matriz-paridad-typora.md` para la matriz completa y `docs/01-legal-li
 
 Flujos en Mermaid: `flows/` · Diagramas: `diagrams/` · Contratos y criterios: `specs/` · Decisiones: `adr/`.
 
-## Compilar (cuando exista código)
+## Desarrollo
+
+Requisitos en Fedora:
 
 ```bash
 sudo dnf install webkit2gtk4.1-devel gtk3-devel librsvg2-devel \
-  openssl-devel libappindicator-gtk3-devel libxdo-devel patchelf rpm-build
-sudo dnf install pandoc texlive-xetex   # exportación
-
-npm install
-npm run tauri dev
-npm run tauri build
+  openssl-devel libayatana-appindicator-gtk3-devel libxdo-devel patchelf
 ```
+
+Interfaz y escritorio:
+
+```bash
+npm install
+npm run dev          # solo interfaz en el navegador
+npm run tauri dev    # aplicación de escritorio
+npm run tauri build  # paquetes (deb/rpm/AppImage)
+```
+
+Calidad:
+
+```bash
+npm run lint
+npm run format:check
+npm run build
+cd src-tauri && cargo fmt --check && cargo clippy --all-targets -- -D warnings && cargo test
+```
+
+CI ejecuta frontend y Rust en cada push a `main` (`.github/workflows/ci.yml`).
 
 ## Licencia
 
