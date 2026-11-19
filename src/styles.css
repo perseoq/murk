@@ -104,6 +104,32 @@ body {
   font-weight: 700;
 }
 
+.sidebar-toggle {
+  display: grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--murk-fg);
+  font-size: 17px;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.sidebar-toggle:hover,
+.sidebar-toggle.active {
+  background: var(--murk-hover);
+  color: var(--murk-accent);
+}
+
+.sidebar-toggle:focus-visible {
+  outline: 2px solid var(--murk-accent);
+  outline-offset: 1px;
+}
+
 .menus {
   display: flex;
   align-items: center;
@@ -940,6 +966,8 @@ body.resizing {
 }
 
 .modal-overlay {
+  position: absolute;
+  inset: 0;
   display: grid;
   place-items: center;
   padding: 24px;
@@ -1035,6 +1063,29 @@ body.resizing {
 .field input:focus,
 .field select:focus {
   border-color: var(--murk-accent);
+}
+
+/* El desplegable nativo de WebKitGTK sigue el tema GTK, no el de la app.
+   Fijamos fondo/color de las opciones para evitar texto negro sobre fondo
+   oscuro cuando el tema del sistema y el de Murk no coinciden. */
+.field select {
+  color-scheme: light;
+}
+
+:root[data-theme="dark"] .field select {
+  color-scheme: dark;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) .field select {
+    color-scheme: dark;
+  }
+}
+
+.field select option,
+.field select optgroup {
+  background-color: var(--murk-bg);
+  color: var(--murk-fg);
 }
 
 .field-inline {
