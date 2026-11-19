@@ -76,6 +76,7 @@ export interface Settings {
   pdfEngine: PdfEngine;
   spellcheck: boolean;
   spellcheckLanguage: string;
+  keybindings: Record<string, string>;
 }
 
 export interface RecoverySnapshot {

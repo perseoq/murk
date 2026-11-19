@@ -81,6 +81,7 @@ vi.mock("../editor/editor", () => {
     setReadOnly(): void {}
     setTabSize(): void {}
     setSpellcheck(): void {}
+    setKeybindings(): void {}
     refresh(): void {}
     scrollToRatio(): void {}
     invalidate(): void {}

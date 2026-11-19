@@ -44,6 +44,7 @@ import "katex/dist/katex.min.css";
 
 import { blockWidgetsField } from "./block-widgets";
 import { refreshEffect } from "./effects";
+import { applyFormat, formatKeymap, type FormatAction } from "./format";
 import { livePreview, livePreviewAtomicRanges } from "./live-preview";
 import {
   handleTablePaste,
@@ -149,12 +150,14 @@ export class MurkEditor {
   private readonly indentCompartment = new Compartment();
   private readonly readOnlyCompartment = new Compartment();
   private readonly spellcheckCompartment = new Compartment();
+  private readonly formatKeymapCompartment = new Compartment();
   private readonly baseExtensions: Extension[];
   private currentTabId: string | null = null;
   private tabSize: number;
   private readOnly = false;
   private spellcheckEnabled = true;
   private spellcheckLanguage = "";
+  private keybindings: Record<string, string> = {};
 
   constructor(parent: HTMLElement, options: { tabSize: number } & MurkEditorCallbacks) {
     this.callbacks = { onChange: options.onChange, onCursor: options.onCursor };
@@ -174,6 +177,7 @@ export class MurkEditor {
       search({ top: true }),
       highlightSelectionMatches(),
       Prec.high(keymap.of([{ key: "Mod-Shift-t", run: insertTableCommand }, ...tableKeymap])),
+      this.formatKeymapCompartment.of(Prec.high(keymap.of(formatKeymap()))),
       keymap.of([
         ...defaultKeymap,
         ...historyKeymap,
@@ -250,6 +254,9 @@ export class MurkEditor {
           EditorView.editable.of(!readOnly),
         ]),
         this.spellcheckCompartment.reconfigure(this.spellcheckAttributes()),
+        this.formatKeymapCompartment.reconfigure(
+          Prec.high(keymap.of(formatKeymap(this.keybindings))),
+        ),
       ],
     });
   }
@@ -311,6 +318,19 @@ export class MurkEditor {
     this.view.dispatch({
       effects: this.spellcheckCompartment.reconfigure(this.spellcheckAttributes()),
     });
+  }
+
+  setKeybindings(keybindings: Record<string, string>): void {
+    this.keybindings = keybindings;
+    this.view.dispatch({
+      effects: this.formatKeymapCompartment.reconfigure(
+        Prec.high(keymap.of(formatKeymap(keybindings))),
+      ),
+    });
+  }
+
+  format(action: FormatAction): boolean {
+    return applyFormat(this.view, action);
   }
 
   scrollToRatio(ratio: number): void {

@@ -49,6 +49,18 @@ describe("settings", () => {
     });
   });
 
+  it("normaliza atajos de formato y descarta claves desconocidas", () => {
+    const settings = normalizeSettings({
+      keybindings: {
+        "format.bold": " Ctrl+Alt+B ",
+        "format.italic": "",
+        "otra.clave": "Ctrl+X",
+      },
+    });
+
+    expect(settings.keybindings).toEqual({ "format.bold": "Ctrl+Alt+B" });
+  });
+
   it("aplica tema y variables CSS", () => {
     const properties = new Map<string, string>();
     const root = {

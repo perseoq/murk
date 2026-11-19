@@ -21,7 +21,13 @@ export type ActionId =
   | "edit.find"
   | "edit.findNext"
   | "edit.replace"
+  | "format.bold"
+  | "format.italic"
+  | "format.strikethrough"
+  | "format.code"
+  | "format.link"
   | "view.settings"
+  | "view.formatShortcuts"
   | "view.sidebar"
   | "view.files"
   | "view.outline"
@@ -89,10 +95,22 @@ export const MENUS: MenuDef[] = [
     ],
   },
   {
+    id: "format",
+    label: "Formato",
+    items: [
+      { label: "Negrita", action: "format.bold", shortcut: "Ctrl+B" },
+      { label: "Cursiva", action: "format.italic", shortcut: "Ctrl+I" },
+      { label: "Tachado", action: "format.strikethrough", shortcut: "Alt+Shift+5" },
+      { label: "Código en línea", action: "format.code", shortcut: "Ctrl+Shift+`" },
+      { label: "Enlace", action: "format.link", shortcut: "Ctrl+K" },
+    ],
+  },
+  {
     id: "view",
     label: "Ver",
     items: [
       { label: "Preferencias…", action: "view.settings", shortcut: "Ctrl+," },
+      { label: "Atajos de formato…", action: "view.formatShortcuts" },
       {
         label: "Barra lateral",
         action: "view.sidebar",

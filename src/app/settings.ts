@@ -15,6 +15,7 @@ export const DEFAULT_SETTINGS: Settings = {
   pdfEngine: "chromium",
   spellcheck: true,
   spellcheckLanguage: "",
+  keybindings: {},
 };
 
 export function normalizeTheme(value: unknown): ThemeMode {
@@ -27,6 +28,28 @@ export function normalizeAutosave(value: unknown): Settings["autosave"] {
 
 export function normalizePdfEngine(value: unknown): Settings["pdfEngine"] {
   return value === "pandoc" ? "pandoc" : "chromium";
+}
+
+const FORMAT_KEYS = new Set([
+  "format.bold",
+  "format.italic",
+  "format.strikethrough",
+  "format.code",
+  "format.link",
+]);
+
+export function normalizeKeybindings(value: unknown): Record<string, string> {
+  if (!value || typeof value !== "object") {
+    return {};
+  }
+
+  const result: Record<string, string> = {};
+  for (const [key, shortcut] of Object.entries(value)) {
+    if (FORMAT_KEYS.has(key) && typeof shortcut === "string" && shortcut.trim().length > 0) {
+      result[key] = shortcut.trim().slice(0, 40);
+    }
+  }
+  return result;
 }
 
 export function normalizeSettings(input: Partial<Settings> | null | undefined): Settings {
@@ -53,6 +76,7 @@ export function normalizeSettings(input: Partial<Settings> | null | undefined): 
     spellcheck: typeof input?.spellcheck === "boolean" ? input.spellcheck : true,
     spellcheckLanguage:
       typeof input?.spellcheckLanguage === "string" ? input.spellcheckLanguage.slice(0, 20) : "",
+    keybindings: normalizeKeybindings(input?.keybindings),
   };
 }
 

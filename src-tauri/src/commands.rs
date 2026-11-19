@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 // Copyright (C) 2026 Murk contributors
 
+use std::collections::HashMap;
 use std::fs;
 use std::path::{Path, PathBuf};
 
@@ -93,6 +94,7 @@ pub struct Settings {
     pub pdf_engine: String,
     pub spellcheck: bool,
     pub spellcheck_language: String,
+    pub keybindings: HashMap<String, String>,
 }
 
 impl Default for Settings {
@@ -109,6 +111,7 @@ impl Default for Settings {
             pdf_engine: "chromium".to_string(),
             spellcheck: true,
             spellcheck_language: String::new(),
+            keybindings: HashMap::new(),
         }
     }
 }
@@ -138,6 +141,20 @@ impl Settings {
         }
         if self.spellcheck_language.chars().count() > 20 {
             self.spellcheck_language = self.spellcheck_language.chars().take(20).collect();
+        }
+        self.keybindings.retain(|key, value| {
+            matches!(
+                key.as_str(),
+                "format.bold"
+                    | "format.italic"
+                    | "format.strikethrough"
+                    | "format.code"
+                    | "format.link"
+            ) && !value.trim().is_empty()
+                && value.chars().count() <= 40
+        });
+        for value in self.keybindings.values_mut() {
+            *value = value.trim().to_string();
         }
         self
     }

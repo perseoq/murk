@@ -22,8 +22,14 @@ import { MurkEditor } from "../editor/editor";
 import type { TableAction } from "../editor/table";
 import { setImageDocumentPath, clearImageCache } from "../editor/widgets/image";
 import { parseOutline } from "./outline";
-import { MENUS, type ActionId, type MenuDef } from "./menus";
-import { DEFAULT_SETTINGS, applySettings, normalizeSettings } from "./settings";
+import {
+  DEFAULT_SETTINGS,
+  applySettings,
+  normalizeKeybindings,
+  normalizeSettings,
+} from "./settings";
+import { shortcutFor, MENUS, type ActionId, type MenuDef } from "./menus";
+import { FORMAT_ACTIONS, type FormatAction } from "../editor/format";
 import { Workspace, countWords, displayPath, type Tab } from "./state";
 
 type CloseChoice = "save" | "discard" | "cancel";
@@ -153,6 +159,8 @@ export class Shell {
   private searchCaseSensitive = false;
   private searchToken = 0;
   private searchResultsElement: HTMLElement | null = null;
+  private statusTimer: ReturnType<typeof setTimeout> | null = null;
+  private previousFocus: HTMLElement | null = null;
   private autosaveHandle: number | null = null;
   private recoveryHandle: number | null = null;
   private autosaveRunning = false;
@@ -228,6 +236,10 @@ export class Shell {
     if (this.searchTimer !== null) {
       clearTimeout(this.searchTimer);
       this.searchTimer = null;
+    }
+    if (this.statusTimer !== null) {
+      clearTimeout(this.statusTimer);
+      this.statusTimer = null;
     }
     if (this.autosaveHandle !== null) {
       clearInterval(this.autosaveHandle);
@@ -380,6 +392,7 @@ export class Shell {
       },
     });
     this.editor.setSpellcheck(this.settings.spellcheck, this.settings.spellcheckLanguage);
+    this.editor.setKeybindings(this.settings.keybindings);
 
     this.tabsElement = this.query<HTMLElement>(".tabs");
     this.workspaceElement = this.query<HTMLElement>("#workspace");
@@ -471,9 +484,12 @@ export class Shell {
       entry.append(label);
 
       if (item.shortcut) {
-        const shortcut = document.createElement("kbd");
-        shortcut.textContent = item.shortcut;
-        entry.append(shortcut);
+        const combo = this.shortcutLabel(item.action);
+        if (combo) {
+          const shortcut = document.createElement("kbd");
+          shortcut.textContent = combo;
+          entry.append(shortcut);
+        }
       }
 
       entry.addEventListener("click", (event) => {
@@ -515,6 +531,10 @@ export class Shell {
     this.root.querySelectorAll<HTMLButtonElement>(".menu-button").forEach((button) => {
       button.setAttribute("aria-expanded", "false");
     });
+  }
+
+  private shortcutLabel(action: ActionId): string | undefined {
+    return this.settings.keybindings[action] ?? shortcutFor(action);
   }
 
   private async runAction(action: ActionId): Promise<void> {
@@ -578,6 +598,21 @@ export class Shell {
       case "edit.replace":
         this.editCommand("replace");
         break;
+      case "format.bold":
+        this.editor.format("bold");
+        break;
+      case "format.italic":
+        this.editor.format("italic");
+        break;
+      case "format.strikethrough":
+        this.editor.format("strikethrough");
+        break;
+      case "format.code":
+        this.editor.format("code");
+        break;
+      case "format.link":
+        this.editor.format("link");
+        break;
       case "table.insert":
         this.editor.insertTable();
         this.editor.focus();
@@ -614,6 +649,9 @@ export class Shell {
         break;
       case "view.settings":
         this.showSettings();
+        break;
+      case "view.formatShortcuts":
+        this.showFormatShortcuts();
         break;
       case "view.sidebar":
         this.toggleSidebar();
@@ -657,12 +695,27 @@ export class Shell {
       this.showFileFormat();
     });
 
-    this.sidebarElement.querySelectorAll<HTMLButtonElement>("[data-view]").forEach((button) => {
+    const sidebarTabs = Array.from(
+      this.sidebarElement.querySelectorAll<HTMLButtonElement>("[data-view]"),
+    );
+
+    sidebarTabs.forEach((button, index) => {
       button.addEventListener("click", () => {
         const view = button.dataset.view as SidebarView | undefined;
         if (view === "files" || view === "outline" || view === "search") {
           this.showSidebar(view);
         }
+      });
+
+      button.addEventListener("keydown", (event) => {
+        if (event.key !== "ArrowRight" && event.key !== "ArrowLeft") {
+          return;
+        }
+        event.preventDefault();
+        const offset = event.key === "ArrowRight" ? 1 : -1;
+        const next = sidebarTabs[(index + offset + sidebarTabs.length) % sidebarTabs.length];
+        next.focus();
+        next.click();
       });
     });
 
@@ -1070,16 +1123,30 @@ export class Shell {
       return;
     }
 
+    const wasDirty = tab.dirty;
     this.workspace.updateContent(tab.id, content);
     tab.cursor = this.editor.getCursor();
-    this.renderTabs();
-    this.updateStatus();
+    if (!wasDirty) {
+      this.renderTabs();
+    }
+    this.saveState.textContent = "Sin guardar";
+    this.scheduleStatus();
     this.updateTitle();
     this.scheduleSession();
     if (this.sidebarVisible && this.sidebarView === "outline") {
       this.scheduleOutline();
     }
     this.scheduleSnapshot(tab);
+  }
+
+  private scheduleStatus(): void {
+    if (this.statusTimer !== null) {
+      clearTimeout(this.statusTimer);
+    }
+    this.statusTimer = setTimeout(() => {
+      this.statusTimer = null;
+      this.updateStatus();
+    }, 120);
   }
 
   private editCommand(
@@ -2550,6 +2617,9 @@ export class Shell {
   }
 
   private openModal(options: ModalOptions): void {
+    this.previousFocus =
+      document.activeElement instanceof HTMLElement ? document.activeElement : null;
+
     const overlay = document.createElement("div");
     overlay.className = "modal-overlay";
 
@@ -2611,12 +2681,45 @@ export class Shell {
       if (event.key === "Escape") {
         event.preventDefault();
         options.onEscape?.();
+        return;
+      }
+
+      if (event.key !== "Tab") {
+        return;
+      }
+
+      const focusable = Array.from(
+        dialog.querySelectorAll<HTMLElement>(
+          'button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [href], [tabindex]:not([tabindex="-1"])',
+        ),
+      ).filter((element) => element.offsetParent !== null || element === document.activeElement);
+
+      if (focusable.length === 0) {
+        return;
+      }
+
+      const first = focusable[0];
+      const last = focusable[focusable.length - 1];
+      const active = document.activeElement;
+
+      if (event.shiftKey && active === first) {
+        event.preventDefault();
+        last.focus();
+      } else if (!event.shiftKey && active === last) {
+        event.preventDefault();
+        first.focus();
       }
     });
   }
 
   private closeModal(): void {
+    const previous = this.previousFocus;
+    this.previousFocus = null;
     this.modalLayer.replaceChildren();
+
+    if (previous?.isConnected) {
+      previous.focus();
+    }
   }
 
   private askClose(name: string): Promise<CloseChoice> {
@@ -2772,11 +2875,13 @@ export class Shell {
               pdfEngine: (pdfEngine?.value as Settings["pdfEngine"]) ?? "chromium",
               spellcheck: spellcheck?.checked ?? true,
               spellcheckLanguage: spellcheckLanguage?.value ?? "",
+              keybindings: this.settings.keybindings,
             });
             this.settings = next;
             applySettings(next);
             this.editor.setTabSize(next.tabSize);
             this.editor.setSpellcheck(next.spellcheck, next.spellcheckLanguage);
+            this.editor.setKeybindings(next.keybindings);
             this.editor.refresh();
             this.configureAutosave();
             this.closeModal();
@@ -2784,6 +2889,83 @@ export class Shell {
             void host.settingsSave(next).catch((error: unknown) => {
               this.toast(`No se pudieron guardar las preferencias: ${errorMessage(error)}`);
             });
+          },
+        },
+        { label: "Cancelar", onClick: () => this.closeModal() },
+      ],
+    });
+  }
+
+  private showFormatShortcuts(): void {
+    const form = document.createElement("form");
+    form.className = "settings-form";
+
+    for (const entry of FORMAT_ACTIONS) {
+      const label = document.createElement("label");
+      label.className = "field";
+      const name = document.createElement("span");
+      name.textContent = entry.label;
+      const input = document.createElement("input");
+      input.type = "text";
+      input.value = this.settings.keybindings[`format.${entry.action}`] ?? entry.shortcut;
+      input.dataset.format = entry.action;
+      input.maxLength = 40;
+      label.append(name, input);
+      form.append(label);
+    }
+
+    this.openModal({
+      title: "Atajos de formato",
+      message: "Usa el formato Ctrl+Alt+Tecla, Ctrl+Shift+Tecla o Alt+Shift+Tecla.",
+      body: form,
+      onEscape: () => this.closeModal(),
+      actions: [
+        {
+          label: "Guardar",
+          primary: true,
+          onClick: () => {
+            const inputs = Array.from(
+              form.querySelectorAll<HTMLInputElement>("input[data-format]"),
+            );
+            const effective = inputs.map((input) => ({
+              action: input.dataset.format as FormatAction,
+              combo:
+                input.value.trim() ||
+                FORMAT_ACTIONS.find((entry) => entry.action === input.dataset.format)?.shortcut ||
+                "",
+            }));
+
+            const seen = new Set<string>();
+            for (const item of effective) {
+              const key = item.combo.toLowerCase();
+              if (seen.has(key)) {
+                this.toast(`Atajo duplicado: ${item.combo}`);
+                return;
+              }
+              seen.add(key);
+            }
+
+            const overrides: Record<string, string> = {};
+            for (const item of effective) {
+              const fallback = FORMAT_ACTIONS.find(
+                (entry) => entry.action === item.action,
+              )?.shortcut;
+              if (item.combo && item.combo !== fallback) {
+                overrides[`format.${item.action}`] = item.combo;
+              }
+            }
+
+            const next = {
+              ...this.settings,
+              keybindings: normalizeKeybindings(overrides),
+            };
+            this.settings = next;
+            this.editor.setKeybindings(next.keybindings);
+            void host.settingsSave(next).catch((error: unknown) => {
+              this.toast(`No se pudieron guardar los atajos: ${errorMessage(error)}`);
+            });
+            this.closeModal();
+            this.toast("Atajos de formato actualizados.");
           },
         },
         { label: "Cancelar", onClick: () => this.closeModal() },
@@ -2802,7 +2984,8 @@ export class Shell {
       group.append(heading);
 
       for (const item of menu.items) {
-        if (!item.shortcut) {
+        const combo = this.shortcutLabel(item.action);
+        if (!combo) {
           continue;
         }
         const row = document.createElement("div");
@@ -2810,7 +2993,7 @@ export class Shell {
         const label = document.createElement("span");
         label.textContent = item.label;
         const keys = document.createElement("kbd");
-        keys.textContent = item.shortcut;
+        keys.textContent = combo;
         row.append(label, keys);
         group.append(row);
       }

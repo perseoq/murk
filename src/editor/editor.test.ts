@@ -3,7 +3,7 @@
 
 import { history, redo, undo } from "@codemirror/commands";
 import { markdown, markdownLanguage } from "@codemirror/lang-markdown";
-import { syntaxTree } from "@codemirror/language";
+import { syntaxTree, ensureSyntaxTree } from "@codemirror/language";
 import { EditorState, type Transaction } from "@codemirror/state";
 import { describe, expect, it } from "vitest";
 
@@ -49,10 +49,11 @@ describe("editor base (CM6)", () => {
       extensions: [markdown({ base: markdownLanguage })],
     });
 
-    const tree = syntaxTree(state).toString();
+    const tree = ensureSyntaxTree(state, state.doc.length) ?? syntaxTree(state);
+    const text = tree.toString();
 
-    expect(tree).toContain("Table");
-    expect(tree).toContain("Task");
+    expect(text).toContain("Table");
+    expect(text).toContain("Task");
   });
 
   it("parsea énfasis, código y encabezados", () => {
@@ -61,11 +62,12 @@ describe("editor base (CM6)", () => {
       extensions: [markdown({ base: markdownLanguage })],
     });
 
-    const tree = syntaxTree(state).toString();
+    const tree = ensureSyntaxTree(state, state.doc.length) ?? syntaxTree(state);
+    const text = tree.toString();
 
-    expect(tree).toContain("ATXHeading1");
-    expect(tree).toContain("StrongEmphasis");
-    expect(tree).toContain("Emphasis");
-    expect(tree).toContain("InlineCode");
+    expect(text).toContain("ATXHeading1");
+    expect(text).toContain("StrongEmphasis");
+    expect(text).toContain("Emphasis");
+    expect(text).toContain("InlineCode");
   });
 });
