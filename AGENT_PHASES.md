@@ -20,9 +20,9 @@ Actualizado: 2026-11-19.
 | **A9** Exportación | ✅ completada | commit `3267bb6`; CI run `44610576993` (62 tests, 33 Rust) |
 | **A10** Integración | ✅ completada | commit `f081d1f`; CI run `44614007667` (62 tests, 36 Rust) |
 | **A11** Paridad y pulido | ✅ completada | commit `9021352`; CI run `44616040579` (69 tests, Rust verde) |
-| **A12** Release | ⬜ pendiente | — |
+| **A12** Release | ✅ completada | commit `a3ca586`; CI run `44620933889` (release 1.0.0) |
 
-**Fases restantes: 1** (A12).
+**Fases restantes: 0.** Plan de 13 fases completado.
 
 ## Track 0 — Fundación
 
