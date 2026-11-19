@@ -576,6 +576,19 @@ body.resizing {
   flex: 0 0 auto;
 }
 
+.update-notes {
+  max-height: 40vh;
+  margin: 14px 0 0;
+  overflow: auto;
+  padding: 12px;
+  border: 1px solid var(--murk-border);
+  border-radius: 8px;
+  background: var(--murk-bg);
+  font-family: var(--murk-mono);
+  font-size: 12px;
+  white-space: pre-wrap;
+}
+
 .editor-area {
   min-height: 0;
   background: var(--murk-surface);

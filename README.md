@@ -5,7 +5,8 @@ Editor de Markdown de escritorio con **paridad funcional con Typora** (referenci
 - **Stack:** Tauri v2 + Rust + CodeMirror 6 + TypeScript
 - **Plataforma objetivo:** Linux x86_64 (Fedora primero), con arquitectura portable a Windows/macOS
 - **Licencia:** GNU General Public License v3.0 o posterior (`GPL-3.0-or-later`)
-- **Estado:** fase **A11 completada** (formato inline, atajos, accesibilidad y rendimiento). Siguiente: A12 Release.
+- **Versión:** 1.0.0
+- **Estado:** fase **A12 completada** (release 1.0.0 con paquetes y updater). Proyecto listo para QA manual de escritorio.
 
 > Murk es un proyecto independiente. No está afiliado, patrocinado ni respaldado por Typora ni por Abner Lee. No contiene código, temas, iconos, tipografías ni documentación de Typora.
 
@@ -50,6 +51,10 @@ Ver `specs/matriz-paridad-typora.md` para la matriz completa y `docs/01-legal-li
 | `docs/21-testing-qa.md` | Estrategia de pruebas |
 | `docs/22-hitos-riesgos.md` | Plan por hitos y riesgos |
 | `docs/23-glosario.md` | Términos |
+| `docs/24-guia-usuario.md` | Guía de instalación y uso |
+| `CHANGELOG.md` | Cambios por versión |
+| `specs/qa-a12.md` | Checklist de release |
+| `specs/estado-a11.md` | Estado de paridad y brechas |
 
 Flujos en Mermaid: `flows/` · Diagramas: `diagrams/` · Contratos y criterios: `specs/` · Decisiones: `adr/`.
 

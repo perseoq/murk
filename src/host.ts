@@ -6,6 +6,7 @@ import { invoke } from "@tauri-apps/api/core";
 import { listen, type UnlistenFn } from "@tauri-apps/api/event";
 import { PhysicalSize, getCurrentWindow, type CloseRequestedEvent } from "@tauri-apps/api/window";
 import { open as openDialog, save as saveDialog } from "@tauri-apps/plugin-dialog";
+import { check, type Update } from "@tauri-apps/plugin-updater";
 
 export type ThemeMode = "light" | "dark" | "system";
 export type AutosaveMode = "off" | "interval" | "blur" | "save";
@@ -116,6 +117,13 @@ export interface ExportResult {
   size: number;
 }
 
+export interface UpdateInfo {
+  currentVersion: string;
+  version: string;
+  date?: string;
+  body?: string;
+}
+
 export interface SessionFile {
   path: string;
   cursor: number;
@@ -217,6 +225,8 @@ const FILE_FILTERS = [
     extensions: ["*"],
   },
 ];
+
+let pendingUpdate: Update | null = null;
 
 export const host = {
   isDesktop,
@@ -408,6 +418,29 @@ export const host = {
 
   exportDocument(request: ExportRequest): Promise<ExportResult> {
     return call<ExportResult>("export_document", { request });
+  },
+
+  async checkForUpdates(): Promise<UpdateInfo | null> {
+    requireDesktop();
+    pendingUpdate = await check();
+    if (!pendingUpdate) {
+      return null;
+    }
+    return {
+      currentVersion: pendingUpdate.currentVersion,
+      version: pendingUpdate.version,
+      date: pendingUpdate.date,
+      body: pendingUpdate.body,
+    };
+  },
+
+  async installUpdate(): Promise<void> {
+    requireDesktop();
+    if (!pendingUpdate) {
+      throw new HostError("no_update", "No hay una actualización preparada.");
+    }
+    await pendingUpdate.downloadAndInstall();
+    pendingUpdate = null;
   },
 
   async settingsLoad(): Promise<Settings | null> {

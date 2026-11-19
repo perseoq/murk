@@ -680,6 +680,9 @@ export class Shell {
       case "help.about":
         await this.showAbout();
         break;
+      case "help.updates":
+        await this.showUpdates();
+        break;
     }
   }
 
@@ -3007,6 +3010,50 @@ export class Shell {
       onEscape: () => this.closeModal(),
       actions: [{ label: "Cerrar", primary: true, onClick: () => this.closeModal() }],
     });
+  }
+
+  private async showUpdates(): Promise<void> {
+    try {
+      const info = await host.checkForUpdates();
+      if (!info) {
+        this.toast("Murk está actualizado.");
+        return;
+      }
+
+      const body = document.createElement("div");
+      const notes = document.createElement("pre");
+      notes.className = "update-notes";
+      notes.textContent = info.body?.trim() || "Sin notas de la versión.";
+      body.append(notes);
+
+      this.openModal({
+        title: "Actualización disponible",
+        message: `Versión ${info.currentVersion} → ${info.version}`,
+        body,
+        onEscape: () => this.closeModal(),
+        actions: [
+          {
+            label: "Instalar",
+            primary: true,
+            onClick: () => {
+              void (async () => {
+                this.toast("Descargando actualización…");
+                try {
+                  await host.installUpdate();
+                  this.closeModal();
+                  this.toast("Actualización instalada. Reinicia Murk para aplicarla.");
+                } catch (error) {
+                  this.toast(errorMessage(error));
+                }
+              })();
+            },
+          },
+          { label: "Cancelar", onClick: () => this.closeModal() },
+        ],
+      });
+    } catch (error) {
+      this.toast(errorMessage(error));
+    }
   }
 
   private async showAbout(): Promise<void> {

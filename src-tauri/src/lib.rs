@@ -37,6 +37,7 @@ pub fn run() {
             }
         }))
         .plugin(tauri_plugin_dialog::init())
+        .plugin(tauri_plugin_updater::Builder::new().build())
         .manage(integration::StartupFiles(Mutex::new(startup_files)))
         .manage(watcher::WatcherState::default())
         .invoke_handler(tauri::generate_handler![

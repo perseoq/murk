@@ -9,6 +9,7 @@
     "core:window:allow-set-title",
     "core:window:allow-set-size",
     "core:window:allow-maximize",
-    "dialog:default"
+    "dialog:default",
+    "updater:default"
   ]
 }

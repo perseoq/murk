@@ -1,7 +1,7 @@
 {
   "name": "murk",
   "private": true,
-  "version": "0.0.0",
+  "version": "1.0.0",
   "description": "Editor de Markdown con preview en vivo (GPL-3.0-or-later)",
   "license": "GPL-3.0-or-later",
   "type": "module",
@@ -28,6 +28,7 @@
     "@lezer/markdown": "^1.8.1",
     "@tauri-apps/api": "^2.12.5",
     "@tauri-apps/plugin-dialog": "^2.8.4",
+    "@tauri-apps/plugin-updater": "^2.14.1",
     "dompurify": "^3.4.18",
     "katex": "^0.19.1",
     "mermaid": "^12.3.0"

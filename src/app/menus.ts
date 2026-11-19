@@ -37,6 +37,7 @@ export type ActionId =
   | "view.theme.system"
   | "help.shortcuts"
   | "help.about"
+  | "help.updates"
   | "table.insert"
   | "table.rowAbove"
   | "table.rowBelow"
@@ -151,6 +152,7 @@ export const MENUS: MenuDef[] = [
     label: "Ayuda",
     items: [
       { label: "Atajos de teclado", action: "help.shortcuts", shortcut: "F1" },
+      { label: "Buscar actualizaciones…", action: "help.updates", separatorBefore: true },
       { label: "Acerca de Murk", action: "help.about", separatorBefore: true },
     ],
   },
