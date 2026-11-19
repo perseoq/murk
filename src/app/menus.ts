@@ -4,6 +4,7 @@
 export type ActionId =
   | "file.new"
   | "file.open"
+  | "file.openFolder"
   | "file.recent"
   | "file.save"
   | "file.saveAs"
@@ -19,6 +20,10 @@ export type ActionId =
   | "edit.findNext"
   | "edit.replace"
   | "view.settings"
+  | "view.sidebar"
+  | "view.files"
+  | "view.outline"
+  | "view.search"
   | "view.theme.light"
   | "view.theme.dark"
   | "view.theme.system"
@@ -56,6 +61,7 @@ export const MENUS: MenuDef[] = [
     items: [
       { label: "Nuevo", action: "file.new", shortcut: "Ctrl+N" },
       { label: "Abrir…", action: "file.open", shortcut: "Ctrl+O" },
+      { label: "Abrir carpeta…", action: "file.openFolder", shortcut: "Ctrl+Shift+O" },
       { label: "Abrir reciente…", action: "file.recent" },
       { label: "Guardar", action: "file.save", shortcut: "Ctrl+S" },
       { label: "Guardar como…", action: "file.saveAs", shortcut: "Ctrl+Shift+S" },
@@ -83,6 +89,15 @@ export const MENUS: MenuDef[] = [
     label: "Ver",
     items: [
       { label: "Preferencias…", action: "view.settings", shortcut: "Ctrl+," },
+      {
+        label: "Barra lateral",
+        action: "view.sidebar",
+        shortcut: "Ctrl+Shift+1",
+        separatorBefore: true,
+      },
+      { label: "Archivos", action: "view.files", shortcut: "Ctrl+Shift+E" },
+      { label: "Esquema", action: "view.outline" },
+      { label: "Buscar en archivos", action: "view.search", shortcut: "Ctrl+Shift+F" },
       { label: "Tema claro", action: "view.theme.light", separatorBefore: true },
       { label: "Tema oscuro", action: "view.theme.dark" },
       { label: "Tema del sistema", action: "view.theme.system" },

@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 // Copyright (C) 2026 Murk contributors
 
-import type { Eol, OpenedFile, SavedFile, Session } from "../host";
+import type { Eol, OpenedFile, SavedFile, Session, SidebarView } from "../host";
 
 export interface Tab {
   id: string;
@@ -204,7 +204,14 @@ export class Workspace {
     return this.tabs.some((tab) => tab.dirty);
   }
 
-  serialize(geometry: { width: number; height: number; maximized: boolean }): Session {
+  serialize(
+    geometry: { width: number; height: number; maximized: boolean },
+    context: {
+      workspaceRoot?: string | null;
+      sidebarView?: SidebarView;
+      sidebarWidth?: number;
+    } = {},
+  ): Session {
     const openFiles = this.tabs
       .filter((tab) => tab.path !== null)
       .map((tab) => ({
@@ -228,6 +235,9 @@ export class Workspace {
       windowWidth: geometry.width,
       windowHeight: geometry.height,
       maximized: geometry.maximized,
+      workspaceRoot: context.workspaceRoot ?? "",
+      sidebarView: context.sidebarView ?? "files",
+      sidebarWidth: context.sidebarWidth ?? 260,
     };
   }
 }

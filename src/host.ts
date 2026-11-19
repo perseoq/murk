@@ -82,6 +82,31 @@ export interface Session {
   windowWidth: number;
   windowHeight: number;
   maximized: boolean;
+  workspaceRoot: string;
+  sidebarView: SidebarView;
+  sidebarWidth: number;
+}
+
+export type SidebarView = "files" | "outline" | "search";
+
+export interface DirEntry {
+  name: string;
+  path: string;
+  isDir: boolean;
+  hidden: boolean;
+}
+
+export interface SearchOptions {
+  caseSensitive: boolean;
+  maxResults: number;
+}
+
+export interface SearchHit {
+  path: string;
+  name: string;
+  line: number;
+  column: number;
+  preview: string;
 }
 
 export interface WindowGeometry {
@@ -168,6 +193,24 @@ export const host = {
       filters: FILE_FILTERS,
     });
     return result ?? null;
+  },
+
+  async openFolderDialog(): Promise<string | null> {
+    requireDesktop();
+    const result = await openDialog({
+      title: "Abrir carpeta",
+      multiple: false,
+      directory: true,
+    });
+    return typeof result === "string" ? result : null;
+  },
+
+  dirList(path: string): Promise<DirEntry[]> {
+    return call<DirEntry[]>("dir_list", { path });
+  },
+
+  searchWorkspace(root: string, query: string, options: SearchOptions): Promise<SearchHit[]> {
+    return call<SearchHit[]>("search_workspace", { root, query, options });
   },
 
   fileOpen(path: string): Promise<OpenedFile> {

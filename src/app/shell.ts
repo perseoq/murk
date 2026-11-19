@@ -3,18 +3,22 @@
 
 import { host } from "../host";
 import type {
+  DirEntry,
   Eol,
   FileChangedEvent,
   OpenedFile,
   RecentEntry,
   SaveOptions,
+  SearchHit,
   Settings,
   Session,
+  SidebarView,
 } from "../host";
 import { ENCODING_OPTIONS, convertEol, encodingDisplayName } from "./encoding";
 import { MurkEditor } from "../editor/editor";
 import type { TableAction } from "../editor/table";
 import { setImageDocumentPath, clearImageCache } from "../editor/widgets/image";
+import { parseOutline } from "./outline";
 import { MENUS, type ActionId, type MenuDef } from "./menus";
 import { DEFAULT_SETTINGS, applySettings, normalizeSettings } from "./settings";
 import { Workspace, countWords, displayPath, type Tab } from "./state";
@@ -83,6 +87,16 @@ function suggestedFileName(name: string): string {
   return name.toLowerCase() === "sin título" ? "sin-titulo.md" : `${name}.md`;
 }
 
+function pathBase(path: string): string {
+  const parts = path.split("/").filter(Boolean);
+  return parts[parts.length - 1] ?? path;
+}
+
+function relativePath(path: string, root: string): string {
+  const prefix = root.endsWith("/") ? root : `${root}/`;
+  return path.startsWith(prefix) ? path.slice(prefix.length) : path;
+}
+
 export class Shell {
   private readonly root: HTMLElement;
   private readonly workspace = new Workspace();
@@ -90,6 +104,10 @@ export class Shell {
   private restoredSession: Session | null = null;
 
   private editor!: MurkEditor;
+  private workspaceElement!: HTMLElement;
+  private sidebarElement!: HTMLElement;
+  private sidebarContent!: HTMLElement;
+  private sidebarResizer!: HTMLElement;
   private tabsElement!: HTMLElement;
   private statusFile!: HTMLElement;
   private statusCount!: HTMLElement;
@@ -110,6 +128,20 @@ export class Shell {
   private readonly watchTimers = new Map<string, number>();
   private conflictBusy = false;
   private themeMedia: MediaQueryList | null = null;
+  private workspaceRoot: string | null = null;
+  private sidebarView: SidebarView = "files";
+  private sidebarWidth = 260;
+  private sidebarVisible = true;
+  private showHidden = false;
+  private readonly treeCache = new Map<string, DirEntry[]>();
+  private readonly pendingDirs = new Set<string>();
+  private readonly expandedDirs = new Set<string>();
+  private outlineTimer: ReturnType<typeof setTimeout> | null = null;
+  private searchTimer: ReturnType<typeof setTimeout> | null = null;
+  private searchQuery = "";
+  private searchCaseSensitive = false;
+  private searchToken = 0;
+  private searchResultsElement: HTMLElement | null = null;
   private readonly handleSystemTheme = (): void => {
     if (this.settings.theme === "system") {
       this.editor.refresh();
@@ -122,6 +154,7 @@ export class Shell {
 
   async boot(): Promise<void> {
     await this.loadState();
+    this.applyRestoredWorkspaceContext();
     this.mount();
     await this.restoreSession();
     this.bindShellEvents();
@@ -133,6 +166,13 @@ export class Shell {
       });
     } catch (error) {
       console.warn("No se pudo escuchar cambios de archivos", error);
+    }
+
+    this.applySidebarLayout();
+    this.renderSidebar();
+
+    if (this.workspaceRoot) {
+      void this.ensureDir(this.workspaceRoot);
     }
 
     this.intervalHandle = window.setInterval(() => {
@@ -148,6 +188,14 @@ export class Shell {
     if (this.intervalHandle !== null) {
       clearInterval(this.intervalHandle);
       this.intervalHandle = null;
+    }
+    if (this.outlineTimer !== null) {
+      clearTimeout(this.outlineTimer);
+      this.outlineTimer = null;
+    }
+    if (this.searchTimer !== null) {
+      clearTimeout(this.searchTimer);
+      this.searchTimer = null;
     }
     for (const timer of this.watchTimers.values()) {
       clearTimeout(timer);
@@ -182,6 +230,20 @@ export class Shell {
     }
 
     applySettings(this.settings);
+  }
+
+  private applyRestoredWorkspaceContext(): void {
+    const session = this.restoredSession;
+    if (!session) {
+      return;
+    }
+
+    this.workspaceRoot = session.workspaceRoot || null;
+    this.sidebarView =
+      session.sidebarView === "outline" || session.sidebarView === "search"
+        ? session.sidebarView
+        : "files";
+    this.sidebarWidth = Math.min(480, Math.max(180, session.sidebarWidth || 260));
   }
 
   private async restoreSession(): Promise<void> {
@@ -233,9 +295,20 @@ export class Shell {
           <div class="tabs" role="tablist" aria-label="Documentos abiertos"></div>
           <button class="tab-new" id="tab-new" type="button" title="Nueva pestaña (Ctrl+N)" aria-label="Nueva pestaña">+</button>
         </div>
-        <main class="editor-area">
-          <div id="editor" class="editor-host"></div>
-        </main>
+        <div class="workspace" id="workspace">
+          <aside class="sidebar" id="sidebar" aria-label="Barra lateral">
+            <div class="sidebar-tabs" role="tablist" aria-label="Vistas laterales">
+              <button type="button" class="sidebar-tab" data-view="files" role="tab">Archivos</button>
+              <button type="button" class="sidebar-tab" data-view="outline" role="tab">Esquema</button>
+              <button type="button" class="sidebar-tab" data-view="search" role="tab">Búsqueda</button>
+            </div>
+            <div class="sidebar-content" id="sidebar-content"></div>
+            <div class="sidebar-resizer" id="sidebar-resizer" role="separator" aria-orientation="vertical" title="Redimensionar barra lateral"></div>
+          </aside>
+          <main class="editor-area">
+            <div id="editor" class="editor-host"></div>
+          </main>
+        </div>
         <footer class="statusbar">
           <span id="status-file" class="status-file">Sin título</span>
           <span class="status-spacer"></span>
@@ -262,6 +335,10 @@ export class Shell {
     });
 
     this.tabsElement = this.query<HTMLElement>(".tabs");
+    this.workspaceElement = this.query<HTMLElement>("#workspace");
+    this.sidebarElement = this.query<HTMLElement>("#sidebar");
+    this.sidebarContent = this.query<HTMLElement>("#sidebar-content");
+    this.sidebarResizer = this.query<HTMLElement>("#sidebar-resizer");
     this.statusFile = this.query<HTMLElement>("#status-file");
     this.statusCount = this.query<HTMLElement>("#status-count");
     this.statusEncoding = this.query<HTMLButtonElement>("#status-encoding");
@@ -403,6 +480,9 @@ export class Shell {
       case "file.open":
         await this.openFile();
         break;
+      case "file.openFolder":
+        await this.openFolder();
+        break;
       case "file.recent":
         await this.showRecent();
         break;
@@ -482,6 +562,18 @@ export class Shell {
       case "view.settings":
         this.showSettings();
         break;
+      case "view.sidebar":
+        this.toggleSidebar();
+        break;
+      case "view.files":
+        this.showSidebar("files");
+        break;
+      case "view.outline":
+        this.showSidebar("outline");
+        break;
+      case "view.search":
+        this.showSidebar("search");
+        break;
       case "view.theme.light":
         await this.setTheme("light");
         break;
@@ -510,6 +602,39 @@ export class Shell {
     });
     this.statusEol.addEventListener("click", () => {
       this.showFileFormat();
+    });
+
+    this.sidebarElement.querySelectorAll<HTMLButtonElement>("[data-view]").forEach((button) => {
+      button.addEventListener("click", () => {
+        const view = button.dataset.view as SidebarView | undefined;
+        if (view === "files" || view === "outline" || view === "search") {
+          this.showSidebar(view);
+        }
+      });
+    });
+
+    this.sidebarResizer.addEventListener("mousedown", (event) => {
+      if (!this.sidebarVisible) {
+        return;
+      }
+      event.preventDefault();
+      const workspaceRect = this.workspaceElement.getBoundingClientRect();
+
+      const move = (moveEvent: MouseEvent): void => {
+        this.sidebarWidth = Math.min(480, Math.max(180, moveEvent.clientX - workspaceRect.left));
+        this.applySidebarLayout();
+      };
+
+      const up = (): void => {
+        window.removeEventListener("mousemove", move);
+        window.removeEventListener("mouseup", up);
+        document.body.classList.remove("resizing");
+        this.scheduleSession();
+      };
+
+      document.body.classList.add("resizing");
+      window.addEventListener("mousemove", move);
+      window.addEventListener("mouseup", up);
     });
 
     this.tabsElement.addEventListener("click", (event) => {
@@ -559,6 +684,24 @@ export class Shell {
         return;
       }
 
+      if (event.shiftKey) {
+        if (event.code === "Digit1") {
+          event.preventDefault();
+          this.toggleSidebar();
+          return;
+        }
+        if (event.code === "KeyE") {
+          event.preventDefault();
+          this.showSidebar("files");
+          return;
+        }
+        if (event.code === "KeyF") {
+          event.preventDefault();
+          this.showSidebar("search");
+          return;
+        }
+      }
+
       switch (event.key.toLowerCase()) {
         case "n":
           event.preventDefault();
@@ -566,7 +709,11 @@ export class Shell {
           break;
         case "o":
           event.preventDefault();
-          void this.openFile();
+          if (event.shiftKey) {
+            void this.openFolder();
+          } else {
+            void this.openFile();
+          }
           break;
         case "s":
           event.preventDefault();
@@ -836,6 +983,9 @@ export class Shell {
     this.updateStatus();
     this.updateTitle();
     this.scheduleSession();
+    if (this.sidebarVisible && this.sidebarView === "outline") {
+      this.scheduleOutline();
+    }
   }
 
   private editCommand(
@@ -900,6 +1050,32 @@ export class Shell {
     this.renderEditor();
     this.updateStatus();
     this.updateTitle();
+    this.refreshSidebarForDocument();
+  }
+
+  private refreshSidebarForDocument(): void {
+    if (!this.sidebarVisible) {
+      return;
+    }
+    if (this.sidebarView === "outline") {
+      this.scheduleOutline();
+      return;
+    }
+    if (this.sidebarView === "files") {
+      this.renderSidebar();
+    }
+  }
+
+  private scheduleOutline(): void {
+    if (this.outlineTimer !== null) {
+      clearTimeout(this.outlineTimer);
+    }
+    this.outlineTimer = setTimeout(() => {
+      this.outlineTimer = null;
+      if (this.sidebarVisible && this.sidebarView === "outline") {
+        this.renderSidebar();
+      }
+    }, 250);
   }
 
   private renderTabs(): void {
@@ -1032,7 +1208,12 @@ export class Shell {
 
     try {
       const geometry = await host.window.geometry();
-      await host.sessionSave(this.workspace.serialize(geometry));
+      const session = this.workspace.serialize(geometry, {
+        workspaceRoot: this.workspaceRoot,
+        sidebarView: this.sidebarView,
+        sidebarWidth: this.sidebarWidth,
+      });
+      await host.sessionSave(session);
     } catch {
       // La sesión es best-effort; nunca bloquea la edición.
     }
@@ -1048,6 +1229,478 @@ export class Shell {
       this.toast("Coloca el cursor dentro de una tabla.");
     }
     this.editor.focus();
+  }
+
+  private applySidebarLayout(): void {
+    if (!this.workspaceElement || !this.sidebarElement) {
+      return;
+    }
+
+    this.workspaceElement.classList.toggle("sidebar-hidden", !this.sidebarVisible);
+    this.workspaceElement.style.gridTemplateColumns = this.sidebarVisible
+      ? `${this.sidebarWidth}px minmax(0, 1fr)`
+      : "minmax(0, 1fr)";
+    this.sidebarElement.setAttribute("aria-hidden", String(!this.sidebarVisible));
+  }
+
+  private toggleSidebar(): void {
+    this.sidebarVisible = !this.sidebarVisible;
+    this.applySidebarLayout();
+    if (this.sidebarVisible) {
+      this.renderSidebar();
+    }
+    this.scheduleSession();
+  }
+
+  private showSidebar(view: SidebarView): void {
+    this.sidebarView = view;
+    this.sidebarVisible = true;
+    this.applySidebarLayout();
+    this.renderSidebar();
+    this.scheduleSession();
+
+    if (view === "search") {
+      this.sidebarContent.querySelector<HTMLInputElement>("input[type='search']")?.focus();
+    }
+  }
+
+  private renderSidebar(): void {
+    if (!this.sidebarContent) {
+      return;
+    }
+
+    this.sidebarElement.querySelectorAll<HTMLButtonElement>("[data-view]").forEach((button) => {
+      const active = button.dataset.view === this.sidebarView;
+      button.classList.toggle("active", active);
+      button.setAttribute("aria-selected", String(active));
+      button.tabIndex = active ? 0 : -1;
+    });
+
+    this.sidebarContent.replaceChildren();
+
+    if (!this.sidebarVisible) {
+      return;
+    }
+
+    if (this.sidebarView === "files") {
+      this.renderFiles();
+    } else if (this.sidebarView === "outline") {
+      this.renderOutline();
+    } else {
+      this.renderSearch();
+    }
+  }
+
+  private renderFiles(): void {
+    const content = this.sidebarContent;
+    const header = document.createElement("div");
+    header.className = "sidebar-header";
+
+    const title = document.createElement("span");
+    title.className = "sidebar-title";
+    title.textContent = this.workspaceRoot ? pathBase(this.workspaceRoot) : "Archivos";
+    title.title = this.workspaceRoot ?? "";
+    header.append(title);
+
+    const actions = document.createElement("div");
+    actions.className = "sidebar-actions";
+
+    if (this.workspaceRoot) {
+      const hidden = document.createElement("button");
+      hidden.type = "button";
+      hidden.className = "sidebar-icon";
+      hidden.classList.toggle("active", this.showHidden);
+      hidden.title = "Mostrar archivos ocultos";
+      hidden.setAttribute("aria-pressed", String(this.showHidden));
+      hidden.textContent = "◌";
+      hidden.addEventListener("click", () => {
+        this.showHidden = !this.showHidden;
+        this.renderSidebar();
+      });
+      actions.append(hidden);
+
+      const refresh = document.createElement("button");
+      refresh.type = "button";
+      refresh.className = "sidebar-icon";
+      refresh.title = "Actualizar árbol";
+      refresh.textContent = "↻";
+      refresh.addEventListener("click", () => {
+        this.treeCache.delete(this.workspaceRoot as string);
+        void this.ensureDir(this.workspaceRoot as string);
+      });
+      actions.append(refresh);
+    }
+
+    const open = document.createElement("button");
+    open.type = "button";
+    open.className = "sidebar-icon";
+    open.title = "Abrir carpeta";
+    open.textContent = "📂";
+    open.addEventListener("click", () => {
+      void this.openFolder();
+    });
+    actions.append(open);
+    header.append(actions);
+    content.append(header);
+
+    if (!this.workspaceRoot) {
+      const empty = document.createElement("div");
+      empty.className = "sidebar-empty";
+      empty.textContent = "Abre una carpeta para navegar por sus archivos.";
+      const button = document.createElement("button");
+      button.type = "button";
+      button.className = "button button-primary";
+      button.textContent = "Abrir carpeta";
+      button.addEventListener("click", () => {
+        void this.openFolder();
+      });
+      empty.append(button);
+      content.append(empty);
+      return;
+    }
+
+    if (!this.treeCache.has(this.workspaceRoot)) {
+      const loading = document.createElement("p");
+      loading.className = "sidebar-empty";
+      loading.textContent = "Cargando carpeta…";
+      content.append(loading);
+      void this.ensureDir(this.workspaceRoot);
+      return;
+    }
+
+    const tree = document.createElement("div");
+    tree.className = "tree";
+    tree.setAttribute("role", "tree");
+    this.renderTree(tree, this.workspaceRoot, 0);
+    content.append(tree);
+
+    if (tree.childElementCount === 0) {
+      const empty = document.createElement("p");
+      empty.className = "sidebar-empty";
+      empty.textContent = "Carpeta vacía.";
+      content.append(empty);
+    }
+  }
+
+  private async ensureDir(path: string): Promise<void> {
+    if (this.treeCache.has(path) || this.pendingDirs.has(path)) {
+      return;
+    }
+
+    this.pendingDirs.add(path);
+    try {
+      const entries = await host.dirList(path);
+      this.treeCache.set(path, entries);
+    } catch (error) {
+      this.treeCache.set(path, []);
+      this.toast(`No se pudo leer ${path}: ${errorMessage(error)}`);
+    } finally {
+      this.pendingDirs.delete(path);
+      if (this.sidebarVisible && this.sidebarView === "files") {
+        this.renderSidebar();
+      }
+    }
+  }
+
+  private renderTree(container: HTMLElement, directory: string, depth: number): void {
+    const entries = this.treeCache.get(directory) ?? [];
+    const activePath = this.workspace.active?.path ?? null;
+
+    for (const entry of entries) {
+      if (entry.hidden && !this.showHidden) {
+        continue;
+      }
+
+      const row = document.createElement("button");
+      row.type = "button";
+      row.className = "tree-row";
+      row.setAttribute("role", "treeitem");
+      row.style.paddingLeft = `${6 + depth * 14}px`;
+      row.title = entry.path;
+
+      const marker = document.createElement("span");
+      marker.className = "tree-marker";
+      marker.textContent = entry.isDir ? (this.expandedDirs.has(entry.path) ? "▾" : "▸") : "•";
+      row.append(marker);
+
+      const name = document.createElement("span");
+      name.className = "tree-name";
+      name.textContent = entry.name;
+      row.append(name);
+
+      if (!entry.isDir && entry.path === activePath) {
+        row.classList.add("active");
+      }
+      if (entry.isDir) {
+        row.setAttribute("aria-expanded", String(this.expandedDirs.has(entry.path)));
+      }
+
+      row.addEventListener("click", () => {
+        if (entry.isDir) {
+          this.toggleDir(entry.path);
+        } else {
+          void this.openPath(entry.path);
+        }
+      });
+
+      container.append(row);
+
+      if (entry.isDir && this.expandedDirs.has(entry.path)) {
+        if (!this.treeCache.has(entry.path)) {
+          const loading = document.createElement("p");
+          loading.className = "tree-loading";
+          loading.style.paddingLeft = `${20 + depth * 14}px`;
+          loading.textContent = "Cargando…";
+          container.append(loading);
+          void this.ensureDir(entry.path);
+        } else {
+          this.renderTree(container, entry.path, depth + 1);
+        }
+      }
+    }
+  }
+
+  private toggleDir(path: string): void {
+    if (this.expandedDirs.has(path)) {
+      this.expandedDirs.delete(path);
+    } else {
+      this.expandedDirs.add(path);
+      if (!this.treeCache.has(path)) {
+        void this.ensureDir(path);
+      }
+    }
+    this.renderSidebar();
+  }
+
+  private renderOutline(): void {
+    const content = this.sidebarContent;
+    const tab = this.workspace.active;
+
+    const header = document.createElement("div");
+    header.className = "sidebar-header";
+    const title = document.createElement("span");
+    title.className = "sidebar-title";
+    title.textContent = "Esquema";
+    header.append(title);
+    content.append(header);
+
+    if (!tab) {
+      const empty = document.createElement("p");
+      empty.className = "sidebar-empty";
+      empty.textContent = "Sin documento activo.";
+      content.append(empty);
+      return;
+    }
+
+    const items = parseOutline(tab.content);
+    if (items.length === 0) {
+      const empty = document.createElement("p");
+      empty.className = "sidebar-empty";
+      empty.textContent = "Este documento no tiene encabezados.";
+      content.append(empty);
+      return;
+    }
+
+    let activeIndex = -1;
+    items.forEach((item, index) => {
+      if (item.offset <= tab.cursor) {
+        activeIndex = index;
+      }
+    });
+
+    const list = document.createElement("div");
+    list.className = "outline-list";
+    list.setAttribute("role", "tree");
+
+    items.forEach((item, index) => {
+      const button = document.createElement("button");
+      button.type = "button";
+      button.className = "outline-item";
+      button.classList.toggle("active", index === activeIndex);
+      button.style.paddingLeft = `${8 + (item.level - 1) * 14}px`;
+      button.textContent = item.text;
+      button.title = item.text;
+      button.addEventListener("click", () => {
+        this.editor.revealOffset(item.offset);
+      });
+      list.append(button);
+    });
+
+    content.append(list);
+  }
+
+  private renderSearch(): void {
+    const content = this.sidebarContent;
+    const header = document.createElement("div");
+    header.className = "sidebar-header";
+    const title = document.createElement("span");
+    title.className = "sidebar-title";
+    title.textContent = "Buscar en archivos";
+    header.append(title);
+    content.append(header);
+
+    const pane = document.createElement("div");
+    pane.className = "search-pane";
+
+    const input = document.createElement("input");
+    input.type = "search";
+    input.className = "search-input";
+    input.placeholder = "Buscar en la carpeta…";
+    input.value = this.searchQuery;
+    input.setAttribute("aria-label", "Buscar en archivos");
+    input.addEventListener("input", () => {
+      this.searchQuery = input.value;
+      this.scheduleSearch();
+    });
+    pane.append(input);
+
+    const toolbar = document.createElement("label");
+    toolbar.className = "search-option";
+    const checkbox = document.createElement("input");
+    checkbox.type = "checkbox";
+    checkbox.checked = this.searchCaseSensitive;
+    checkbox.addEventListener("change", () => {
+      this.searchCaseSensitive = checkbox.checked;
+      this.scheduleSearch();
+    });
+    const label = document.createElement("span");
+    label.textContent = "Distinguir mayúsculas";
+    toolbar.append(checkbox, label);
+    pane.append(toolbar);
+
+    const results = document.createElement("div");
+    results.className = "search-results";
+    pane.append(results);
+    content.append(pane);
+
+    this.searchResultsElement = results;
+
+    if (!this.workspaceRoot) {
+      results.textContent = "Abre una carpeta para buscar en sus archivos.";
+      return;
+    }
+    if (this.searchQuery.trim().length < 2) {
+      results.textContent = "Escribe al menos 2 caracteres.";
+      return;
+    }
+
+    this.scheduleSearch();
+  }
+
+  private scheduleSearch(): void {
+    if (this.searchTimer !== null) {
+      clearTimeout(this.searchTimer);
+    }
+    this.searchTimer = setTimeout(() => {
+      this.searchTimer = null;
+      void this.runSearch();
+    }, 300);
+  }
+
+  private async runSearch(): Promise<void> {
+    const results = this.searchResultsElement;
+    const root = this.workspaceRoot;
+    const query = this.searchQuery.trim();
+
+    if (!results || !root) {
+      return;
+    }
+    if (query.length < 2) {
+      results.textContent = "Escribe al menos 2 caracteres.";
+      return;
+    }
+
+    const token = ++this.searchToken;
+    results.textContent = "Buscando…";
+
+    try {
+      const hits = await host.searchWorkspace(root, query, {
+        caseSensitive: this.searchCaseSensitive,
+        maxResults: 200,
+      });
+
+      if (token !== this.searchToken || !results.isConnected) {
+        return;
+      }
+
+      results.replaceChildren();
+      if (hits.length === 0) {
+        results.textContent = "Sin resultados.";
+        return;
+      }
+
+      const summary = document.createElement("p");
+      summary.className = "search-summary";
+      summary.textContent = `${hits.length} coincidencia(s)`;
+      results.append(summary);
+
+      let currentPath = "";
+      let group: HTMLElement | null = null;
+
+      for (const hit of hits) {
+        if (hit.path !== currentPath) {
+          currentPath = hit.path;
+          group = document.createElement("div");
+          group.className = "search-group";
+          const file = document.createElement("div");
+          file.className = "search-file";
+          file.textContent = relativePath(hit.path, root);
+          file.title = hit.path;
+          group.append(file);
+          results.append(group);
+        }
+
+        const button = document.createElement("button");
+        button.type = "button";
+        button.className = "search-hit";
+        const line = document.createElement("span");
+        line.className = "search-line";
+        line.textContent = `${hit.line}:${hit.column + 1}`;
+        const preview = document.createElement("span");
+        preview.className = "search-preview";
+        preview.textContent = hit.preview;
+        button.append(line, preview);
+        button.addEventListener("click", () => {
+          void this.openSearchHit(hit);
+        });
+        group?.append(button);
+      }
+    } catch (error) {
+      if (token === this.searchToken) {
+        results.textContent = `Error al buscar: ${errorMessage(error)}`;
+      }
+    }
+  }
+
+  private async openSearchHit(hit: SearchHit): Promise<void> {
+    const opened = await this.openPath(hit.path);
+    if (opened) {
+      this.editor.revealLine(hit.line, hit.column);
+    }
+  }
+
+  private async openFolder(): Promise<void> {
+    try {
+      const folder = await host.openFolderDialog();
+      if (folder) {
+        this.setWorkspaceRoot(folder);
+      }
+    } catch (error) {
+      this.toast(errorMessage(error));
+    }
+  }
+
+  private setWorkspaceRoot(path: string): void {
+    this.workspaceRoot = path;
+    this.treeCache.clear();
+    this.pendingDirs.clear();
+    this.expandedDirs.clear();
+    this.sidebarView = "files";
+    this.sidebarVisible = true;
+    this.applySidebarLayout();
+    this.renderSidebar();
+    void this.ensureDir(path);
+    this.scheduleSession();
   }
 
   private async watchPath(path: string): Promise<void> {

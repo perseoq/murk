@@ -5,6 +5,7 @@ mod commands;
 mod error;
 mod store;
 mod watcher;
+mod workspace;
 
 /// Arranca la aplicación Murk.
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
@@ -23,6 +24,8 @@ pub fn run() {
             commands::recent_list,
             commands::recent_add,
             commands::recent_clear,
+            workspace::dir_list,
+            workspace::search_workspace,
             watcher::watch_file,
             watcher::unwatch_file,
         ])

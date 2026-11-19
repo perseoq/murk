@@ -130,6 +130,9 @@ pub struct Session {
     pub window_width: u32,
     pub window_height: u32,
     pub maximized: bool,
+    pub workspace_root: String,
+    pub sidebar_view: String,
+    pub sidebar_width: u32,
 }
 
 impl Default for Session {
@@ -141,6 +144,9 @@ impl Default for Session {
             window_width: 0,
             window_height: 0,
             maximized: false,
+            workspace_root: String::new(),
+            sidebar_view: "files".to_string(),
+            sidebar_width: 260,
         }
     }
 }
@@ -153,6 +159,10 @@ impl Session {
         } else {
             self.active_index = self.active_index.min(self.open_files.len() - 1);
         }
+        if !matches!(self.sidebar_view.as_str(), "files" | "outline" | "search") {
+            self.sidebar_view = "files".to_string();
+        }
+        self.sidebar_width = self.sidebar_width.clamp(180, 480);
         self
     }
 }

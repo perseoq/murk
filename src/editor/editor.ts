@@ -314,6 +314,26 @@ export class MurkEditor {
     this.view.focus();
   }
 
+  revealOffset(offset: number): void {
+    const position = Math.max(0, Math.min(offset, this.view.state.doc.length));
+    this.view.dispatch({
+      selection: { anchor: position },
+      scrollIntoView: true,
+    });
+    this.view.focus();
+  }
+
+  revealLine(line: number, column: number): void {
+    const doc = this.view.state.doc;
+    const target = doc.line(Math.min(Math.max(line, 1), doc.lines));
+    const position = Math.min(target.from + Math.max(column, 0), target.to);
+    this.view.dispatch({
+      selection: { anchor: position },
+      scrollIntoView: true,
+    });
+    this.view.focus();
+  }
+
   refresh(): void {
     this.view.dispatch({ effects: refreshEffect.of(null) });
   }
