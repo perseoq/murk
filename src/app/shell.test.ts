@@ -15,6 +15,16 @@ const mocks = vi.hoisted(() => ({
   recentList: vi.fn(),
   recentAdd: vi.fn(),
   recentClear: vi.fn(),
+  recoveryCheckCrash: vi.fn(),
+  recoveryMarkClean: vi.fn(),
+  recoveryWrite: vi.fn(),
+  recoveryList: vi.fn(),
+  recoveryDelete: vi.fn(),
+  recoveryClear: vi.fn(),
+  historyRecord: vi.fn(),
+  historyList: vi.fn(),
+  historyRead: vi.fn(),
+  historyClear: vi.fn(),
   settingsLoad: vi.fn(),
   settingsSave: vi.fn(),
   sessionLoad: vi.fn(),
@@ -110,6 +120,16 @@ vi.mock("../host", () => ({
     recentList: mocks.recentList,
     recentAdd: mocks.recentAdd,
     recentClear: mocks.recentClear,
+    recoveryCheckCrash: mocks.recoveryCheckCrash,
+    recoveryMarkClean: mocks.recoveryMarkClean,
+    recoveryWrite: mocks.recoveryWrite,
+    recoveryList: mocks.recoveryList,
+    recoveryDelete: mocks.recoveryDelete,
+    recoveryClear: mocks.recoveryClear,
+    historyRecord: mocks.historyRecord,
+    historyList: mocks.historyList,
+    historyRead: mocks.historyRead,
+    historyClear: mocks.historyClear,
     settingsLoad: mocks.settingsLoad,
     settingsSave: mocks.settingsSave,
     sessionLoad: mocks.sessionLoad,
@@ -142,6 +162,24 @@ describe("Shell · flujo abrir → editar → guardar", () => {
     mocks.recentList.mockResolvedValue([]);
     mocks.recentAdd.mockResolvedValue([]);
     mocks.recentClear.mockResolvedValue(undefined);
+    mocks.recoveryCheckCrash.mockResolvedValue(false);
+    mocks.recoveryMarkClean.mockResolvedValue(undefined);
+    mocks.recoveryWrite.mockResolvedValue({
+      id: "s1",
+      docId: "d1",
+      path: null,
+      name: "x",
+      content: "",
+      createdAt: 1,
+      reason: "interval",
+    });
+    mocks.recoveryList.mockResolvedValue([]);
+    mocks.recoveryDelete.mockResolvedValue(undefined);
+    mocks.recoveryClear.mockResolvedValue(undefined);
+    mocks.historyRecord.mockResolvedValue(undefined);
+    mocks.historyList.mockResolvedValue([]);
+    mocks.historyRead.mockResolvedValue("");
+    mocks.historyClear.mockResolvedValue(undefined);
     mocks.version.mockResolvedValue("0.0.0");
     mocks.geometry.mockResolvedValue({ width: 1200, height: 800, maximized: false });
     mocks.restore.mockResolvedValue(undefined);

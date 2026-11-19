@@ -86,6 +86,8 @@ pub struct Settings {
     pub font_family: String,
     pub font_size: u32,
     pub tab_size: u32,
+    pub autosave: String,
+    pub autosave_interval_ms: u32,
 }
 
 impl Default for Settings {
@@ -95,6 +97,8 @@ impl Default for Settings {
             font_family: String::new(),
             font_size: 16,
             tab_size: 4,
+            autosave: "off".to_string(),
+            autosave_interval_ms: 30_000,
         }
     }
 }
@@ -104,8 +108,12 @@ impl Settings {
         if !matches!(self.theme.as_str(), "light" | "dark" | "system") {
             self.theme = "system".to_string();
         }
+        if !matches!(self.autosave.as_str(), "off" | "interval" | "blur" | "save") {
+            self.autosave = "off".to_string();
+        }
         self.font_size = self.font_size.clamp(10, 32);
         self.tab_size = self.tab_size.clamp(1, 8);
+        self.autosave_interval_ms = self.autosave_interval_ms.clamp(5_000, 600_000);
         if self.font_family.chars().count() > 200 {
             self.font_family = self.font_family.chars().take(200).collect();
         }
@@ -363,6 +371,7 @@ mod tests {
             font_family: "x".repeat(300),
             font_size: 2,
             tab_size: 99,
+            ..Settings::default()
         }
         .normalized();
 
@@ -370,6 +379,19 @@ mod tests {
         assert_eq!(settings.font_size, 10);
         assert_eq!(settings.tab_size, 8);
         assert_eq!(settings.font_family.chars().count(), 200);
+    }
+
+    #[test]
+    fn autosave_settings_are_normalized() {
+        let settings = Settings {
+            autosave: "otro".to_string(),
+            autosave_interval_ms: 1,
+            ..Settings::default()
+        }
+        .normalized();
+
+        assert_eq!(settings.autosave, "off");
+        assert_eq!(settings.autosave_interval_ms, 5_000);
     }
 
     #[test]

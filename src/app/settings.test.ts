@@ -3,7 +3,13 @@
 
 import { describe, expect, it } from "vitest";
 
-import { DEFAULT_SETTINGS, applySettings, normalizeSettings, normalizeTheme } from "./settings";
+import {
+  DEFAULT_SETTINGS,
+  applySettings,
+  normalizeAutosave,
+  normalizeSettings,
+  normalizeTheme,
+} from "./settings";
 
 describe("settings", () => {
   it("usa valores por defecto con entrada vacía", () => {
@@ -30,6 +36,19 @@ describe("settings", () => {
     expect(settings.fontFamily).toHaveLength(200);
   });
 
+  it("normaliza el autoguardado y su intervalo", () => {
+    expect(normalizeSettings({ autosave: "blur", autosaveIntervalMs: 1000 })).toMatchObject({
+      autosave: "blur",
+      autosaveIntervalMs: 5000,
+    });
+
+    expect(normalizeAutosave("otro")).toBe("off");
+    expect(normalizeSettings({ autosaveIntervalMs: 9_999_999 })).toMatchObject({
+      autosave: "off",
+      autosaveIntervalMs: 600_000,
+    });
+  });
+
   it("aplica tema y variables CSS", () => {
     const properties = new Map<string, string>();
     const root = {
@@ -39,7 +58,10 @@ describe("settings", () => {
       },
     } as unknown as HTMLElement;
 
-    applySettings({ theme: "dark", fontFamily: "Noto Serif", fontSize: 18, tabSize: 4 }, root);
+    applySettings(
+      { ...DEFAULT_SETTINGS, theme: "dark", fontFamily: "Noto Serif", fontSize: 18 },
+      root,
+    );
 
     expect(root.dataset.theme).toBe("dark");
     expect(properties.get("--editor-font-size")).toBe("18px");

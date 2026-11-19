@@ -26,7 +26,6 @@ describe("encoding", () => {
     expect(normalizeEol("otro")).toBe("lf");
     expect(normalizeEol(undefined)).toBe("lf");
   });
-
   it("muestra nombres legibles de codificación", () => {
     expect(encodingDisplayName("utf-8")).toBe("UTF-8");
     expect(encodingDisplayName("utf-16le")).toBe("UTF-16 LE");

@@ -180,6 +180,29 @@ export class Workspace {
     tab.missing = false;
   }
 
+  openSnapshot(snapshot: { path: string | null; name: string; content: string }): Tab {
+    const existing = snapshot.path
+      ? this.tabs.find((tab) => tab.path === snapshot.path)
+      : undefined;
+
+    if (existing) {
+      existing.content = snapshot.content;
+      existing.dirty = true;
+      existing.missing = false;
+      this.activeId = existing.id;
+      return existing;
+    }
+
+    const tab = this.createUntitled();
+    tab.path = snapshot.path;
+    tab.name = snapshot.name;
+    tab.content = snapshot.content;
+    tab.dirty = true;
+    tab.cursor = 0;
+    tab.scroll = 0;
+    return tab;
+  }
+
   closeTab(id: string): void {
     const index = this.tabs.findIndex((tab) => tab.id === id);
     if (index === -1) {

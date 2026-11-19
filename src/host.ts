@@ -8,6 +8,7 @@ import { PhysicalSize, getCurrentWindow, type CloseRequestedEvent } from "@tauri
 import { open as openDialog, save as saveDialog } from "@tauri-apps/plugin-dialog";
 
 export type ThemeMode = "light" | "dark" | "system";
+export type AutosaveMode = "off" | "interval" | "blur" | "save";
 export type Eol = "lf" | "crlf" | "cr";
 export type FileChangeKind = "created" | "modified" | "removed";
 
@@ -67,6 +68,27 @@ export interface Settings {
   fontFamily: string;
   fontSize: number;
   tabSize: number;
+  autosave: AutosaveMode;
+  autosaveIntervalMs: number;
+}
+
+export interface RecoverySnapshot {
+  id: string;
+  docId: string;
+  path: string | null;
+  name: string;
+  content: string;
+  createdAt: number;
+  reason: string;
+}
+
+export interface HistoryMeta {
+  id: string;
+  path: string;
+  createdAt: number;
+  size: number;
+  hash: string;
+  trigger: string;
 }
 
 export interface SessionFile {
@@ -262,6 +284,76 @@ export const host = {
       return;
     }
     await call<void>("recent_clear");
+  },
+
+  async recoveryCheckCrash(): Promise<boolean> {
+    if (!isDesktop()) {
+      return false;
+    }
+    return call<boolean>("recovery_check_crash");
+  },
+
+  async recoveryMarkClean(): Promise<void> {
+    if (!isDesktop()) {
+      return;
+    }
+    await call<void>("recovery_mark_clean");
+  },
+
+  recoveryWrite(input: {
+    docId: string;
+    path: string | null;
+    name: string;
+    content: string;
+    reason: string;
+  }): Promise<RecoverySnapshot> {
+    return call<RecoverySnapshot>("recovery_write", input);
+  },
+
+  async recoveryList(): Promise<RecoverySnapshot[]> {
+    if (!isDesktop()) {
+      return [];
+    }
+    return call<RecoverySnapshot[]>("recovery_list");
+  },
+
+  async recoveryDelete(docId: string): Promise<void> {
+    if (!isDesktop()) {
+      return;
+    }
+    await call<void>("recovery_delete", { docId });
+  },
+
+  async recoveryClear(): Promise<void> {
+    if (!isDesktop()) {
+      return;
+    }
+    await call<void>("recovery_clear");
+  },
+
+  async historyRecord(path: string, content: string, trigger: string): Promise<void> {
+    if (!isDesktop()) {
+      return;
+    }
+    await call<void>("history_record", { path, content, trigger });
+  },
+
+  async historyList(path: string): Promise<HistoryMeta[]> {
+    if (!isDesktop()) {
+      return [];
+    }
+    return call<HistoryMeta[]>("history_list", { path });
+  },
+
+  async historyRead(path: string, id: string): Promise<string> {
+    return call<string>("history_read", { path, id });
+  },
+
+  async historyClear(path: string): Promise<void> {
+    if (!isDesktop()) {
+      return;
+    }
+    await call<void>("history_clear", { path });
   },
 
   async settingsLoad(): Promise<Settings | null> {

@@ -525,6 +525,57 @@ body.resizing {
   white-space: nowrap;
 }
 
+.recovery-list,
+.history-list {
+  display: grid;
+  gap: 6px;
+  max-height: 50vh;
+  margin-top: 14px;
+  overflow: auto;
+}
+
+.recovery-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  padding: 8px;
+  border: 1px solid var(--murk-border);
+  border-radius: 8px;
+}
+
+.recovery-details,
+.history-details {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+  font-size: 12.5px;
+}
+
+.recovery-details span,
+.history-details span {
+  overflow: hidden;
+  color: var(--murk-muted);
+  font-size: 11px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.history-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 8px;
+  border: 1px solid var(--murk-border);
+  border-radius: 8px;
+}
+
+.history-actions {
+  display: flex;
+  gap: 6px;
+  flex: 0 0 auto;
+}
+
 .editor-area {
   min-height: 0;
   background: var(--murk-surface);

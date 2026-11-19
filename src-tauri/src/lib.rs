@@ -3,6 +3,7 @@
 
 mod commands;
 mod error;
+mod recovery;
 mod store;
 mod watcher;
 mod workspace;
@@ -26,6 +27,16 @@ pub fn run() {
             commands::recent_clear,
             workspace::dir_list,
             workspace::search_workspace,
+            recovery::recovery_check_crash,
+            recovery::recovery_mark_clean,
+            recovery::recovery_write,
+            recovery::recovery_list,
+            recovery::recovery_delete,
+            recovery::recovery_clear,
+            recovery::history_record,
+            recovery::history_list,
+            recovery::history_read,
+            recovery::history_clear,
             watcher::watch_file,
             watcher::unwatch_file,
         ])

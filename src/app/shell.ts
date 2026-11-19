@@ -6,8 +6,10 @@ import type {
   DirEntry,
   Eol,
   FileChangedEvent,
+  HistoryMeta,
   OpenedFile,
   RecentEntry,
+  RecoverySnapshot,
   SaveOptions,
   SearchHit,
   Settings,
@@ -142,6 +144,11 @@ export class Shell {
   private searchCaseSensitive = false;
   private searchToken = 0;
   private searchResultsElement: HTMLElement | null = null;
+  private autosaveHandle: number | null = null;
+  private recoveryHandle: number | null = null;
+  private autosaveRunning = false;
+  private readonly snapshotTimers = new Map<string, number>();
+  private readonly lastSnapshots = new Map<string, string>();
   private readonly handleSystemTheme = (): void => {
     if (this.settings.theme === "system") {
       this.editor.refresh();
@@ -170,10 +177,16 @@ export class Shell {
 
     this.applySidebarLayout();
     this.renderSidebar();
+    this.configureAutosave();
+    this.recoveryHandle = window.setInterval(() => {
+      void this.snapshotDirty("interval");
+    }, 30_000);
 
     if (this.workspaceRoot) {
       void this.ensureDir(this.workspaceRoot);
     }
+
+    void this.handleStartupRecovery();
 
     this.intervalHandle = window.setInterval(() => {
       void this.persistSession();
@@ -197,6 +210,18 @@ export class Shell {
       clearTimeout(this.searchTimer);
       this.searchTimer = null;
     }
+    if (this.autosaveHandle !== null) {
+      clearInterval(this.autosaveHandle);
+      this.autosaveHandle = null;
+    }
+    if (this.recoveryHandle !== null) {
+      clearInterval(this.recoveryHandle);
+      this.recoveryHandle = null;
+    }
+    for (const timer of this.snapshotTimers.values()) {
+      clearTimeout(timer);
+    }
+    this.snapshotTimers.clear();
     for (const timer of this.watchTimers.values()) {
       clearTimeout(timer);
     }
@@ -492,6 +517,9 @@ export class Shell {
       case "file.saveAs":
         await this.saveActive(true);
         break;
+      case "file.history":
+        await this.showHistory();
+        break;
       case "file.close":
         await this.closeActiveTab();
         break;
@@ -739,9 +767,18 @@ export class Shell {
         void this.persistSession();
       }
     });
+
+    window.addEventListener("blur", () => {
+      if (this.settings.autosave === "blur") {
+        void this.autoSaveDirty();
+      }
+    });
   }
 
   private newTab(): void {
+    if (this.settings.autosave === "save") {
+      void this.autoSaveDirty();
+    }
     this.captureCursor();
     this.workspace.createUntitled();
     this.afterMutation();
@@ -808,7 +845,8 @@ export class Shell {
     this.saveState.textContent = "Guardando…";
 
     try {
-      const saved = await host.fileSave(path, tab.content, options);
+      const contentToSave = tab.content;
+      const saved = await host.fileSave(path, contentToSave, options);
 
       this.localWrites.set(saved.path, Date.now());
       if (previousPath && previousPath !== saved.path) {
@@ -818,6 +856,17 @@ export class Shell {
       void this.rememberRecent(saved.path);
 
       this.workspace.markSaved(tab.id, saved);
+      if (tab.content !== contentToSave) {
+        tab.dirty = true;
+        this.scheduleSnapshot(tab);
+      }
+      const docId = this.docId(tab);
+      this.lastSnapshots.delete(docId);
+      void host.recoveryDelete(docId).catch(() => undefined);
+      if (previousPath && previousPath !== saved.path) {
+        void host.recoveryDelete(previousPath).catch(() => undefined);
+      }
+      void host.historyRecord(saved.path, contentToSave, "save").catch(() => undefined);
       if (this.workspace.activeId === tab.id) {
         this.editor.setReadOnly(tab.readOnly);
         setImageDocumentPath(saved.path);
@@ -826,7 +875,9 @@ export class Shell {
       this.renderTabs();
       this.updateStatus();
       this.updateTitle();
-      this.saveState.textContent = "Guardado";
+      if (!tab.dirty) {
+        this.saveState.textContent = "Guardado";
+      }
       this.scheduleSession();
       return true;
     } catch (error) {
@@ -905,6 +956,14 @@ export class Shell {
       void host.unwatchFile(tab.path).catch(() => undefined);
     }
 
+    void host.recoveryDelete(this.docId(tab)).catch(() => undefined);
+    this.lastSnapshots.delete(this.docId(tab));
+    const timer = this.snapshotTimers.get(tab.id);
+    if (timer !== undefined) {
+      clearTimeout(timer);
+      this.snapshotTimers.delete(tab.id);
+    }
+
     if (this.workspace.tabs.length === 0) {
       this.workspace.createUntitled();
     }
@@ -950,6 +1009,8 @@ export class Shell {
       }
 
       await this.persistSession();
+      await host.recoveryClear().catch(() => undefined);
+      await host.recoveryMarkClean().catch(() => undefined);
       this.allowClose = true;
 
       try {
@@ -963,6 +1024,9 @@ export class Shell {
   private activateTab(id: string): void {
     if (this.workspace.activeId === id) {
       return;
+    }
+    if (this.settings.autosave === "save") {
+      void this.autoSaveDirty();
     }
     this.captureCursor();
     this.workspace.setActive(id);
@@ -986,6 +1050,7 @@ export class Shell {
     if (this.sidebarVisible && this.sidebarView === "outline") {
       this.scheduleOutline();
     }
+    this.scheduleSnapshot(tab);
   }
 
   private editCommand(
@@ -1229,6 +1294,355 @@ export class Shell {
       this.toast("Coloca el cursor dentro de una tabla.");
     }
     this.editor.focus();
+  }
+
+  private configureAutosave(): void {
+    if (this.autosaveHandle !== null) {
+      clearInterval(this.autosaveHandle);
+      this.autosaveHandle = null;
+    }
+
+    if (this.settings.autosave === "interval") {
+      this.autosaveHandle = window.setInterval(() => {
+        void this.autoSaveDirty();
+      }, this.settings.autosaveIntervalMs);
+    }
+  }
+
+  private docId(tab: Tab): string {
+    return tab.path ?? tab.id;
+  }
+
+  private scheduleSnapshot(tab: Tab): void {
+    if (!host.isDesktop()) {
+      return;
+    }
+
+    const existing = this.snapshotTimers.get(tab.id);
+    if (existing !== undefined) {
+      clearTimeout(existing);
+    }
+
+    const timer = window.setTimeout(() => {
+      this.snapshotTimers.delete(tab.id);
+      void this.snapshotTab(tab.id, "interval");
+    }, 5_000);
+
+    this.snapshotTimers.set(tab.id, timer);
+  }
+
+  private async snapshotTab(tabId: string, reason: string): Promise<void> {
+    if (this.autosaveRunning) {
+      return;
+    }
+
+    const tab = this.workspace.tabs.find((item) => item.id === tabId);
+    if (!tab || !tab.dirty) {
+      return;
+    }
+
+    if (this.workspace.activeId === tab.id) {
+      this.captureCursor();
+    }
+
+    const docId = this.docId(tab);
+    if (reason === "interval" && this.lastSnapshots.get(docId) === tab.content) {
+      return;
+    }
+
+    try {
+      await host.recoveryWrite({
+        docId,
+        path: tab.path,
+        name: tab.name,
+        content: tab.content,
+        reason,
+      });
+      this.lastSnapshots.set(docId, tab.content);
+    } catch {
+      // La recuperación es best-effort.
+    }
+  }
+
+  private async snapshotDirty(reason: string): Promise<void> {
+    if (!host.isDesktop()) {
+      return;
+    }
+
+    this.captureCursor();
+    for (const tab of [...this.workspace.tabs]) {
+      if (tab.dirty) {
+        await this.snapshotTab(tab.id, reason);
+      }
+    }
+  }
+
+  private async autoSaveDirty(): Promise<void> {
+    if (this.autosaveRunning || !host.isDesktop()) {
+      return;
+    }
+
+    this.autosaveRunning = true;
+    this.captureCursor();
+
+    try {
+      for (const tab of [...this.workspace.tabs]) {
+        if (!tab.dirty || !tab.path || tab.readOnly || tab.missing) {
+          continue;
+        }
+
+        try {
+          const contentToSave = tab.content;
+          const saved = await host.fileSave(tab.path, contentToSave, {
+            encoding: tab.encoding,
+            bom: tab.bom,
+            eol: tab.eol,
+            convertEol: false,
+            expectedFingerprint: tab.fingerprint || null,
+          });
+          const docId = this.docId(tab);
+          this.localWrites.set(saved.path, Date.now());
+          this.workspace.markSaved(tab.id, saved);
+          if (tab.content !== contentToSave) {
+            tab.dirty = true;
+            this.scheduleSnapshot(tab);
+          }
+          this.lastSnapshots.delete(docId);
+          void host.recoveryDelete(docId).catch(() => undefined);
+          void host.historyRecord(saved.path, contentToSave, "autosave").catch(() => undefined);
+        } catch {
+          // Conflicto o error de escritura: se deja para el guardado manual.
+        }
+      }
+    } finally {
+      this.autosaveRunning = false;
+    }
+
+    this.renderTabs();
+    this.updateStatus();
+    this.updateTitle();
+    this.scheduleSession();
+  }
+
+  private async handleStartupRecovery(): Promise<void> {
+    if (!host.isDesktop()) {
+      return;
+    }
+
+    try {
+      const crashed = await host.recoveryCheckCrash();
+      if (!crashed) {
+        return;
+      }
+
+      const snapshots = await host.recoveryList();
+      if (snapshots.length > 0) {
+        this.showRecovery(snapshots);
+      }
+    } catch (error) {
+      console.warn("No se pudo comprobar la recuperación", error);
+    }
+  }
+
+  private showRecovery(snapshots: RecoverySnapshot[]): void {
+    const body = document.createElement("div");
+    body.className = "recovery-list";
+    const checks: Array<{ input: HTMLInputElement; snapshot: RecoverySnapshot }> = [];
+
+    for (const snapshot of snapshots) {
+      const label = document.createElement("label");
+      label.className = "recovery-item";
+
+      const input = document.createElement("input");
+      input.type = "checkbox";
+      input.checked = true;
+
+      const details = document.createElement("span");
+      details.className = "recovery-details";
+      const name = document.createElement("strong");
+      name.textContent = snapshot.name;
+      const meta = document.createElement("span");
+      meta.textContent = `${snapshot.path ?? "Sin título"} · ${new Date(
+        snapshot.createdAt,
+      ).toLocaleString()}`;
+      details.append(name, meta);
+
+      label.append(input, details);
+      body.append(label);
+      checks.push({ input, snapshot });
+    }
+
+    this.openModal({
+      title: "Recuperar documentos",
+      message: "La sesión anterior no se cerró correctamente. Elige qué recuperar.",
+      body,
+      onEscape: () => this.closeModal(),
+      actions: [
+        {
+          label: "Restaurar seleccionados",
+          primary: true,
+          onClick: () => {
+            const selected = checks
+              .filter((entry) => entry.input.checked)
+              .map((entry) => entry.snapshot);
+            if (selected.length === 0) {
+              this.toast("No hay documentos seleccionados.");
+              return;
+            }
+
+            for (const snapshot of selected) {
+              const tab = this.workspace.openSnapshot(snapshot);
+              this.editor.invalidate(tab.id);
+              void host.recoveryDelete(snapshot.docId).catch(() => undefined);
+            }
+
+            this.closeModal();
+            this.renderAll();
+            this.editor.focus();
+            this.toast(`${selected.length} documento(s) restaurado(s).`);
+          },
+        },
+        {
+          label: "Descartar todo",
+          danger: true,
+          onClick: () => {
+            void host
+              .recoveryClear()
+              .then(() => {
+                this.closeModal();
+                this.toast("Recuperaciones descartadas.");
+              })
+              .catch((error: unknown) => this.toast(errorMessage(error)));
+          },
+        },
+        { label: "Cancelar", onClick: () => this.closeModal() },
+      ],
+    });
+  }
+
+  private async showHistory(): Promise<void> {
+    const tab = this.workspace.active;
+    if (!tab?.path) {
+      this.toast("Guarda el documento para tener historial.");
+      return;
+    }
+
+    let entries: HistoryMeta[];
+    try {
+      entries = await host.historyList(tab.path);
+    } catch (error) {
+      this.toast(errorMessage(error));
+      return;
+    }
+
+    if (entries.length === 0) {
+      this.toast("Todavía no hay versiones de este documento.");
+      return;
+    }
+
+    const body = document.createElement("div");
+    body.className = "history-list";
+
+    for (const entry of entries.slice(0, 30)) {
+      const row = document.createElement("div");
+      row.className = "history-row";
+
+      const details = document.createElement("div");
+      details.className = "history-details";
+      const date = document.createElement("strong");
+      date.textContent = new Date(entry.createdAt).toLocaleString();
+      const meta = document.createElement("span");
+      meta.textContent = `${Math.ceil(entry.size / 1024)} KB · ${entry.trigger}`;
+      details.append(date, meta);
+
+      const actions = document.createElement("div");
+      actions.className = "history-actions";
+
+      const diff = document.createElement("button");
+      diff.type = "button";
+      diff.className = "button";
+      diff.textContent = "Diferencias";
+      diff.addEventListener("click", () => {
+        void this.showHistoryDiff(tab.path as string, entry);
+      });
+
+      const restore = document.createElement("button");
+      restore.type = "button";
+      restore.className = "button button-primary";
+      restore.textContent = "Restaurar";
+      restore.addEventListener("click", () => {
+        void this.restoreHistory(tab.path as string, entry);
+      });
+
+      actions.append(diff, restore);
+      row.append(details, actions);
+      body.append(row);
+    }
+
+    this.openModal({
+      title: "Historial del documento",
+      message: tab.name,
+      body,
+      onEscape: () => this.closeModal(),
+      actions: [
+        {
+          label: "Limpiar historial",
+          danger: true,
+          onClick: () => {
+            void host
+              .historyClear(tab.path as string)
+              .then(() => {
+                this.closeModal();
+                this.toast("Historial borrado.");
+              })
+              .catch((error: unknown) => this.toast(errorMessage(error)));
+          },
+        },
+        { label: "Cerrar", primary: true, onClick: () => this.closeModal() },
+      ],
+    });
+  }
+
+  private async showHistoryDiff(path: string, entry: HistoryMeta): Promise<void> {
+    try {
+      const content = await host.historyRead(path, entry.id);
+      const current = this.workspace.active?.content ?? "";
+      const body = document.createElement("div");
+
+      const diff = document.createElement("pre");
+      diff.className = "diff";
+      diff.textContent = renderDiff(current, content);
+      body.append(diff);
+
+      this.openModal({
+        title: "Diferencias con la versión guardada",
+        body,
+        onEscape: () => this.closeModal(),
+        actions: [
+          {
+            label: "Restaurar esta versión",
+            primary: true,
+            onClick: () => {
+              void this.restoreHistory(path, entry);
+            },
+          },
+          { label: "Cerrar", onClick: () => this.closeModal() },
+        ],
+      });
+    } catch (error) {
+      this.toast(errorMessage(error));
+    }
+  }
+
+  private async restoreHistory(path: string, entry: HistoryMeta): Promise<void> {
+    try {
+      const content = await host.historyRead(path, entry.id);
+      this.editor.setContent(content, 0);
+      this.closeModal();
+      this.toast("Versión restaurada; guarda para aplicarla.");
+    } catch (error) {
+      this.toast(errorMessage(error));
+    }
   }
 
   private applySidebarLayout(): void {
@@ -2156,17 +2570,36 @@ export class Shell {
         <span>Tabulación (espacios)</span>
         <input id="setting-tab" type="number" min="1" max="8" step="1" />
       </label>
+      <label class="field">
+        <span>Autoguardado</span>
+        <select id="setting-autosave">
+          <option value="off">Desactivado</option>
+          <option value="interval">Cada intervalo</option>
+          <option value="blur">Al perder el foco</option>
+          <option value="save">Al cambiar de pestaña</option>
+        </select>
+      </label>
+      <label class="field">
+        <span>Intervalo de autoguardado (segundos)</span>
+        <input id="setting-autosave-interval" type="number" min="5" max="600" step="5" />
+      </label>
     `;
 
     const theme = form.querySelector<HTMLSelectElement>("#setting-theme");
     const font = form.querySelector<HTMLInputElement>("#setting-font");
     const size = form.querySelector<HTMLInputElement>("#setting-size");
     const tabSize = form.querySelector<HTMLInputElement>("#setting-tab");
+    const autosave = form.querySelector<HTMLSelectElement>("#setting-autosave");
+    const autosaveInterval = form.querySelector<HTMLInputElement>("#setting-autosave-interval");
 
     if (theme) theme.value = this.settings.theme;
     if (font) font.value = this.settings.fontFamily;
     if (size) size.value = String(this.settings.fontSize);
     if (tabSize) tabSize.value = String(this.settings.tabSize);
+    if (autosave) autosave.value = this.settings.autosave;
+    if (autosaveInterval) {
+      autosaveInterval.value = String(Math.round(this.settings.autosaveIntervalMs / 1000));
+    }
 
     this.openModal({
       title: "Preferencias",
@@ -2182,11 +2615,16 @@ export class Shell {
               fontFamily: font?.value,
               fontSize: size?.value ? Number(size.value) : this.settings.fontSize,
               tabSize: tabSize?.value ? Number(tabSize.value) : this.settings.tabSize,
+              autosave: autosave?.value as Settings["autosave"],
+              autosaveIntervalMs: autosaveInterval?.value
+                ? Number(autosaveInterval.value) * 1000
+                : this.settings.autosaveIntervalMs,
             });
             this.settings = next;
             applySettings(next);
             this.editor.setTabSize(next.tabSize);
             this.editor.refresh();
+            this.configureAutosave();
             this.closeModal();
             this.toast("Preferencias guardadas");
             void host.settingsSave(next).catch((error: unknown) => {
