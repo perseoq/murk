@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 // Copyright (C) 2026 Murk contributors
 
+use std::cmp::Reverse;
 use std::fs;
 use std::path::{Path, PathBuf};
 use std::time::{SystemTime, UNIX_EPOCH};
@@ -202,7 +203,7 @@ pub fn list_snapshots(base: &Path) -> Result<Vec<RecoverySnapshot>, AppError> {
         }
     }
 
-    snapshots.sort_by(|left, right| right.created_at.cmp(&left.created_at));
+    snapshots.sort_by_key(|snapshot| Reverse(snapshot.created_at));
     Ok(snapshots)
 }
 
@@ -285,7 +286,7 @@ pub fn list_history(base: &Path, path: &str) -> Result<Vec<HistoryMeta>, AppErro
 
     let directory = history_dir(base, path);
     let mut entries = read_history_entries(&directory);
-    entries.sort_by(|left, right| right.created_at.cmp(&left.created_at));
+    entries.sort_by_key(|entry| Reverse(entry.created_at));
 
     Ok(entries
         .into_iter()
