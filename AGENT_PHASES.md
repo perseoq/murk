@@ -12,9 +12,10 @@ Actualizado: 2026-11-19.
 | **A1** Shell | ✅ completada | commit `05f909b`; CI run `44565374891` (18 tests, Rust verde) |
 | **A2** Núcleo de archivos | ✅ completada | commits `68167a1`+`742bd3d`; CI run `44574158933` (23 tests frontend, Rust verde) |
 | **A3** Editor base | ✅ completada | commit `5de207d`; CI run `44579143309` (26 tests, Rust verde) |
-| **A4–A12** | ⬜ pendientes | — |
+| **A4** Live preview v1 | ✅ completada | commit `60bab23`; CI run `44585953963` (36 tests, Rust verde) |
+| **A5–A12** | ⬜ pendientes | — |
 
-**Fases restantes: 9** (A4 a A12).
+**Fases restantes: 8** (A5 a A12).
 
 ## Track 0 — Fundación
 
