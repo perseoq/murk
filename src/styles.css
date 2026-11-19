@@ -908,6 +908,41 @@ body.resizing {
   opacity: 0.55;
 }
 
+.status-modes {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+}
+
+.status-icon-button {
+  display: grid;
+  place-items: center;
+  width: 24px;
+  height: 22px;
+  padding: 0;
+  border: 0;
+  border-radius: 5px;
+  background: transparent;
+  color: var(--murk-muted);
+  cursor: pointer;
+}
+
+.status-icon-button:hover {
+  background: var(--murk-hover);
+  color: var(--murk-fg);
+}
+
+.status-icon-button:focus-visible {
+  outline: 2px solid var(--murk-accent);
+  outline-offset: -1px;
+}
+
+.status-icon-button.active,
+.status-icon-button[aria-pressed="true"] {
+  background: var(--murk-hover);
+  color: var(--murk-accent);
+}
+
 .menu-layer,
 .modal-layer {
   position: fixed;
@@ -932,10 +967,10 @@ body.resizing {
 }
 
 .menu-item {
-  display: flex;
+  display: grid;
+  grid-template-columns: 14px minmax(0, 1fr) auto;
   align-items: center;
-  justify-content: flex-start;
-  gap: 16px;
+  gap: 8px;
   width: 100%;
   padding: 7px 10px;
   border: 0;
@@ -949,12 +984,12 @@ body.resizing {
 }
 
 .menu-label {
-  flex: 1 1 auto;
-  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .menu-check {
-  flex: 0 0 12px;
   color: var(--murk-accent);
   font-size: 12px;
   line-height: 1;

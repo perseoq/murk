@@ -130,6 +130,11 @@ export class Shell {
   private statusCount!: HTMLElement;
   private statusEncoding!: HTMLButtonElement;
   private statusEol!: HTMLButtonElement;
+  private statusModeCode!: HTMLButtonElement;
+  private statusModeEditor!: HTMLButtonElement;
+  private statusModeReadOnly!: HTMLButtonElement;
+  private viewMode: "editor" | "code" = "editor";
+  private viewReadOnly = false;
   private saveState!: HTMLElement;
   private menuLayer!: HTMLElement;
   private modalLayer!: HTMLElement;
@@ -382,6 +387,32 @@ export class Shell {
           <span id="status-file" class="status-file">Sin título</span>
           <span class="status-spacer"></span>
           <span id="status-count">0 palabras</span>
+          <div class="status-modes" role="group" aria-label="Modo de vista">
+            <button
+              id="status-mode-code"
+              class="status-icon-button"
+              type="button"
+              title="Ver código fuente (Ctrl+/)"
+              aria-label="Ver código fuente"
+              aria-pressed="false"
+            ><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="16 18 22 12 16 6"></polyline><polyline points="8 6 2 12 8 18"></polyline></svg></button>
+            <button
+              id="status-mode-editor"
+              class="status-icon-button"
+              type="button"
+              title="Ver editor con vista previa"
+              aria-label="Ver editor con vista previa"
+              aria-pressed="true"
+            ><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8Z"></path><circle cx="12" cy="12" r="3"></circle></svg></button>
+            <button
+              id="status-mode-readonly"
+              class="status-icon-button"
+              type="button"
+              title="Alternar solo lectura"
+              aria-label="Alternar solo lectura"
+              aria-pressed="false"
+            ><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="4" y="11" width="16" height="10" rx="2"></rect><path d="M8 11V7a4 4 0 0 1 8 0v4"></path></svg></button>
+          </div>
           <button id="status-encoding" class="status-tag status-button" type="button" title="Cambiar codificación">UTF-8</button>
           <button id="status-eol" class="status-tag status-button" type="button" title="Cambiar fin de línea">LF</button>
           <span class="status-tag">Texto</span>
@@ -415,12 +446,16 @@ export class Shell {
     this.statusCount = this.query<HTMLElement>("#status-count");
     this.statusEncoding = this.query<HTMLButtonElement>("#status-encoding");
     this.statusEol = this.query<HTMLButtonElement>("#status-eol");
+    this.statusModeCode = this.query<HTMLButtonElement>("#status-mode-code");
+    this.statusModeEditor = this.query<HTMLButtonElement>("#status-mode-editor");
+    this.statusModeReadOnly = this.query<HTMLButtonElement>("#status-mode-readonly");
     this.saveState = this.query<HTMLElement>("#save-state");
     this.menuLayer = this.query<HTMLElement>("#menu-layer");
     this.modalLayer = this.query<HTMLElement>("#modal-layer");
     this.toastLayer = this.query<HTMLElement>("#toast-layer");
 
     this.buildMenus();
+    this.updateViewModeButtons();
   }
 
   private query<T extends Element>(selector: string): T {
@@ -496,13 +531,11 @@ export class Shell {
       }
       entry.dataset.action = item.action;
 
-      if (checkable) {
-        const mark = document.createElement("span");
-        mark.className = "menu-check";
-        mark.setAttribute("aria-hidden", "true");
-        mark.textContent = checked ? "✓" : "";
-        entry.append(mark);
-      }
+      const mark = document.createElement("span");
+      mark.className = "menu-check";
+      mark.setAttribute("aria-hidden", "true");
+      mark.textContent = checked ? "✓" : "";
+      entry.append(mark);
 
       const label = document.createElement("span");
       label.className = "menu-label";
@@ -738,6 +771,16 @@ export class Shell {
       this.showFileFormat();
     });
 
+    this.statusModeCode.addEventListener("click", () => {
+      this.setViewMode("code");
+    });
+    this.statusModeEditor.addEventListener("click", () => {
+      this.setViewMode("editor");
+    });
+    this.statusModeReadOnly.addEventListener("click", () => {
+      this.toggleReadOnlyView();
+    });
+
     const sidebarTabs = Array.from(
       this.sidebarElement.querySelectorAll<HTMLButtonElement>("[data-view]"),
     );
@@ -884,6 +927,10 @@ export class Shell {
           event.preventDefault();
           this.showSettings();
           break;
+        case "/":
+          event.preventDefault();
+          this.setViewMode(this.viewMode === "code" ? "editor" : "code");
+          break;
       }
     });
 
@@ -993,7 +1040,7 @@ export class Shell {
       }
       void host.historyRecord(saved.path, contentToSave, "save").catch(() => undefined);
       if (this.workspace.activeId === tab.id) {
-        this.editor.setReadOnly(tab.readOnly);
+        this.editor.setReadOnly(tab.readOnly || this.viewReadOnly);
         setImageDocumentPath(saved.path);
         this.editor.refresh();
       }
@@ -1333,7 +1380,8 @@ export class Shell {
     }
 
     setImageDocumentPath(tab.path);
-    this.editor.activate(tab.id, tab.content, tab.cursor, tab.readOnly);
+    this.editor.activate(tab.id, tab.content, tab.cursor, tab.readOnly || this.viewReadOnly);
+    this.editor.setSourceMode(this.viewMode === "code");
     this.editor.scrollToRatio(tab.scroll);
   }
 
@@ -1473,6 +1521,37 @@ export class Shell {
         ? `Autoguardado activado (cada ${Math.round(this.settings.autosaveIntervalMs / 1000)} s).`
         : "Autoguardado desactivado.",
     );
+  }
+
+  private setViewMode(mode: "editor" | "code"): void {
+    if (this.viewMode === mode) {
+      return;
+    }
+    this.viewMode = mode;
+    this.applyViewState();
+    this.toast(mode === "code" ? "Modo código." : "Modo editor.");
+  }
+
+  private toggleReadOnlyView(): void {
+    this.viewReadOnly = !this.viewReadOnly;
+    this.applyViewState();
+    this.toast(this.viewReadOnly ? "Solo lectura activado." : "Edición habilitada.");
+  }
+
+  private applyViewState(): void {
+    const tab = this.workspace.active;
+    this.editor.setSourceMode(this.viewMode === "code");
+    this.editor.setReadOnly((tab?.readOnly ?? false) || this.viewReadOnly);
+    this.updateViewModeButtons();
+  }
+
+  private updateViewModeButtons(): void {
+    this.statusModeCode.setAttribute("aria-pressed", String(this.viewMode === "code"));
+    this.statusModeEditor.setAttribute("aria-pressed", String(this.viewMode === "editor"));
+    this.statusModeReadOnly.setAttribute("aria-pressed", String(this.viewReadOnly));
+    this.statusModeCode.classList.toggle("active", this.viewMode === "code");
+    this.statusModeEditor.classList.toggle("active", this.viewMode === "editor");
+    this.statusModeReadOnly.classList.toggle("active", this.viewReadOnly);
   }
 
   private docId(tab: Tab): string {

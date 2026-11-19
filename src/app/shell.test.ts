@@ -80,6 +80,7 @@ vi.mock("../editor/editor", () => {
     }
 
     setReadOnly(): void {}
+    setSourceMode(): void {}
     setTabSize(): void {}
     setSpellcheck(): void {}
     setKeybindings(): void {}
@@ -362,6 +363,42 @@ describe("Shell · flujo abrir → editar → guardar", () => {
         .querySelector<HTMLButtonElement>('[data-action="file.autosave"]')
         ?.getAttribute("aria-checked"),
     ).toBe("false");
+  });
+
+  it("cambia entre modo código, editor y solo lectura desde la barra de estado", async () => {
+    const root = document.querySelector<HTMLElement>("#app");
+    if (!root) {
+      throw new Error("falta #app");
+    }
+
+    shell = new Shell(root);
+    await shell.boot();
+
+    const code = root.querySelector<HTMLButtonElement>("#status-mode-code");
+    const editor = root.querySelector<HTMLButtonElement>("#status-mode-editor");
+    const readOnly = root.querySelector<HTMLButtonElement>("#status-mode-readonly");
+    if (!code || !editor || !readOnly) {
+      throw new Error("faltan los botones de modo");
+    }
+
+    expect(editor.getAttribute("aria-pressed")).toBe("true");
+    expect(code.getAttribute("aria-pressed")).toBe("false");
+
+    code.click();
+    expect(code.getAttribute("aria-pressed")).toBe("true");
+    expect(code.classList.contains("active")).toBe(true);
+    expect(editor.getAttribute("aria-pressed")).toBe("false");
+
+    editor.click();
+    expect(editor.getAttribute("aria-pressed")).toBe("true");
+    expect(code.getAttribute("aria-pressed")).toBe("false");
+
+    readOnly.click();
+    expect(readOnly.getAttribute("aria-pressed")).toBe("true");
+    expect(readOnly.classList.contains("active")).toBe(true);
+
+    readOnly.click();
+    expect(readOnly.getAttribute("aria-pressed")).toBe("false");
   });
 
   it("pide guardar al cerrar con cambios y destruye la ventana", async () => {

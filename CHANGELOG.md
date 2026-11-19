@@ -15,6 +15,10 @@
 
 - **Archivo → Autoguardado** es una opción marcable que activa o desactiva el
   guardado automático sin abrir Preferencias.
+- La barra de estado muestra botones SVG para cambiar entre código fuente,
+  editor con vista previa y solo lectura.
+- El ítem marcable del menú alinea la marca a la izquierda y el atajo a la
+  derecha.
 
 ## 1.0.0 — 2026-11-19
 

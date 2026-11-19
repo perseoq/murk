@@ -151,10 +151,12 @@ export class MurkEditor {
   private readonly readOnlyCompartment = new Compartment();
   private readonly spellcheckCompartment = new Compartment();
   private readonly formatKeymapCompartment = new Compartment();
+  private readonly previewCompartment = new Compartment();
   private readonly baseExtensions: Extension[];
   private currentTabId: string | null = null;
   private tabSize: number;
   private readOnly = false;
+  private sourceMode = false;
   private spellcheckEnabled = true;
   private spellcheckLanguage = "";
   private keybindings: Record<string, string> = {};
@@ -188,9 +190,7 @@ export class MurkEditor {
       markdown({ base: markdownLanguage, codeLanguages: languages }),
       syntaxHighlighting(defaultHighlightStyle, { fallback: true }),
       syntaxHighlighting(markdownHighlight),
-      livePreview,
-      livePreviewAtomicRanges,
-      blockWidgetsField,
+      this.previewCompartment.of([livePreview, livePreviewAtomicRanges, blockWidgetsField]),
       placeholder("Empieza a escribir en Markdown…"),
       EditorView.contentAttributes.of({
         "aria-label": "Editor de Markdown",
@@ -257,6 +257,9 @@ export class MurkEditor {
         this.formatKeymapCompartment.reconfigure(
           Prec.high(keymap.of(formatKeymap(this.keybindings))),
         ),
+        this.previewCompartment.reconfigure(
+          this.sourceMode ? [] : [livePreview, livePreviewAtomicRanges, blockWidgetsField],
+        ),
       ],
     });
   }
@@ -305,6 +308,19 @@ export class MurkEditor {
 
   setReadOnly(readOnly: boolean): void {
     this.applyCompartments(readOnly);
+  }
+
+  /** Muestra el Markdown sin decoraciones de vista previa (modo código). */
+  setSourceMode(enabled: boolean): void {
+    if (this.sourceMode === enabled) {
+      return;
+    }
+    this.sourceMode = enabled;
+    this.view.dispatch({
+      effects: this.previewCompartment.reconfigure(
+        enabled ? [] : [livePreview, livePreviewAtomicRanges, blockWidgetsField],
+      ),
+    });
   }
 
   setTabSize(tabSize: number): void {
