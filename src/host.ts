@@ -511,6 +511,11 @@ export const host = {
       await getCurrentWindow().close();
     },
 
+    async destroy(): Promise<void> {
+      requireDesktop();
+      await getCurrentWindow().destroy();
+    },
+
     async onCloseRequested(
       handler: (event: CloseRequestedEvent) => void | Promise<void>,
     ): Promise<() => void> {

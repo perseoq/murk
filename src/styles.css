@@ -934,7 +934,7 @@ body.resizing {
 .menu-item {
   display: flex;
   align-items: center;
-  justify-content: space-between;
+  justify-content: flex-start;
   gap: 16px;
   width: 100%;
   padding: 7px 10px;
@@ -946,6 +946,19 @@ body.resizing {
   font-size: 13px;
   text-align: left;
   cursor: pointer;
+}
+
+.menu-label {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.menu-check {
+  flex: 0 0 12px;
+  color: var(--murk-accent);
+  font-size: 12px;
+  line-height: 1;
+  text-align: center;
 }
 
 .menu-item:hover {

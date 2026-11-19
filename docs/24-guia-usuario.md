@@ -66,7 +66,9 @@ murk --export docx notas.md
 
 - Los cambios se guardan automáticamente como snapshots (5 s de inactividad y
   cada 30 s) y se ofrecen tras un cierre anómalo.
-- El autoguardado en disco se configura en **Preferencias**.
+- El autoguardado en disco se configura en **Preferencias** o se activa y
+  desactiva al instante desde **Archivo → Autoguardado** (la marca ✓ indica
+  que está activo).
 - **Archivo → Historial del documento…** permite ver diferencias y restaurar.
 
 ## Atajos y accesibilidad

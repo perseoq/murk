@@ -1,5 +1,21 @@
 # Changelog
 
+## Sin publicar
+
+### Correcciones
+
+- El cierre de la ventana vuelve a funcionar: el manejador de cierre necesita
+  el permiso `core:window:allow-destroy`, que faltaba en la capability.
+- El aviso de cambios sin guardar vuelve a aparecer al cerrar con documentos
+  modificados.
+- El overlay de los modales cubre toda la ventana.
+- Contraste corregido en las opciones de los selectores nativos.
+
+### Mejoras
+
+- **Archivo → Autoguardado** es una opción marcable que activa o desactiva el
+  guardado automático sin abrir Preferencias.
+
 ## 1.0.0 — 2026-11-19
 
 Primera versión estable de Murk.

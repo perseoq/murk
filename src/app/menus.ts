@@ -10,6 +10,7 @@ export type ActionId =
   | "file.saveAs"
   | "file.history"
   | "file.export"
+  | "file.autosave"
   | "file.close"
   | "file.quit"
   | "edit.undo"
@@ -55,6 +56,8 @@ export interface MenuItemDef {
   action: ActionId;
   shortcut?: string;
   separatorBefore?: boolean;
+  /** Elemento marcable: muestra una marca según el estado de la aplicación. */
+  checkable?: boolean;
 }
 
 export interface MenuDef {
@@ -76,7 +79,13 @@ export const MENUS: MenuDef[] = [
       { label: "Guardar como…", action: "file.saveAs", shortcut: "Ctrl+Shift+S" },
       { label: "Historial del documento…", action: "file.history" },
       { label: "Exportar…", action: "file.export" },
-      { label: "Cerrar pestaña", action: "file.close", shortcut: "Ctrl+W" },
+      {
+        label: "Autoguardado",
+        action: "file.autosave",
+        separatorBefore: true,
+        checkable: true,
+      },
+      { label: "Cerrar pestaña", action: "file.close", shortcut: "Ctrl+W", separatorBefore: true },
       { label: "Salir", action: "file.quit", shortcut: "Ctrl+Q", separatorBefore: true },
     ],
   },

@@ -36,6 +36,7 @@ const mocks = vi.hoisted(() => ({
   restore: vi.fn(),
   setTitle: vi.fn(),
   close: vi.fn(),
+  destroy: vi.fn(),
   onCloseRequested: vi.fn(),
 }));
 
@@ -146,6 +147,7 @@ vi.mock("../host", () => ({
       restore: mocks.restore,
       setTitle: mocks.setTitle,
       close: mocks.close,
+      destroy: mocks.destroy,
       onCloseRequested: mocks.onCloseRequested,
     },
   },
@@ -193,6 +195,7 @@ describe("Shell · flujo abrir → editar → guardar", () => {
     mocks.restore.mockResolvedValue(undefined);
     mocks.setTitle.mockResolvedValue(undefined);
     mocks.close.mockResolvedValue(undefined);
+    mocks.destroy.mockResolvedValue(undefined);
     mocks.onCloseRequested.mockResolvedValue(() => undefined);
 
     if (typeof window.requestAnimationFrame !== "function") {
@@ -313,5 +316,90 @@ describe("Shell · flujo abrir → editar → guardar", () => {
     expect(workspace.classList.contains("sidebar-hidden")).toBe(false);
     expect(sidebar.getAttribute("aria-hidden")).toBe("false");
     expect(toggle.getAttribute("aria-expanded")).toBe("true");
+  });
+
+  it("marca y desmarca el autoguardado desde el menú Archivo", async () => {
+    const root = document.querySelector<HTMLElement>("#app");
+    if (!root) {
+      throw new Error("falta #app");
+    }
+
+    shell = new Shell(root);
+    await shell.boot();
+
+    const fileButton = Array.from(root.querySelectorAll<HTMLButtonElement>(".menu-button")).find(
+      (button) => button.textContent === "Archivo",
+    );
+    if (!fileButton) {
+      throw new Error("falta el menú Archivo");
+    }
+
+    fileButton.click();
+    const first = root.querySelector<HTMLButtonElement>('[data-action="file.autosave"]');
+    expect(first?.getAttribute("aria-checked")).toBe("false");
+
+    first?.click();
+    await vi.waitFor(() =>
+      expect(mocks.settingsSave).toHaveBeenCalledWith(
+        expect.objectContaining({ autosave: "interval" }),
+      ),
+    );
+
+    fileButton.click();
+    const second = root.querySelector<HTMLButtonElement>('[data-action="file.autosave"]');
+    expect(second?.getAttribute("aria-checked")).toBe("true");
+
+    second?.click();
+    await vi.waitFor(() =>
+      expect(mocks.settingsSave).toHaveBeenLastCalledWith(
+        expect.objectContaining({ autosave: "off" }),
+      ),
+    );
+
+    fileButton.click();
+    expect(
+      root
+        .querySelector<HTMLButtonElement>('[data-action="file.autosave"]')
+        ?.getAttribute("aria-checked"),
+    ).toBe("false");
+  });
+
+  it("pide guardar al cerrar con cambios y destruye la ventana", async () => {
+    const root = document.querySelector<HTMLElement>("#app");
+    if (!root) {
+      throw new Error("falta #app");
+    }
+
+    type CloseHandler = (event: { preventDefault: () => void }) => Promise<void>;
+    let handler: CloseHandler | null = null;
+    mocks.onCloseRequested.mockImplementation((callback: CloseHandler) => {
+      handler = callback;
+      return Promise.resolve(() => undefined);
+    });
+
+    shell = new Shell(root);
+    await shell.boot();
+    shell.replaceActiveContent("contenido sin guardar");
+
+    if (!handler) {
+      throw new Error("no se registró el manejador de cierre");
+    }
+
+    const closeHandler = handler as CloseHandler;
+    const preventDefault = vi.fn();
+    const closing = closeHandler({ preventDefault });
+
+    await vi.waitFor(() =>
+      expect(root.querySelector(".modal-title")?.textContent).toBe("Cambios sin guardar"),
+    );
+    expect(preventDefault).toHaveBeenCalled();
+
+    const discard = Array.from(
+      root.querySelectorAll<HTMLButtonElement>(".modal-actions .button"),
+    ).find((button) => button.textContent === "Salir sin guardar");
+    discard?.click();
+
+    await closing;
+    expect(mocks.destroy).toHaveBeenCalledTimes(1);
   });
 });

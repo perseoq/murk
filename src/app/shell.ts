@@ -488,10 +488,24 @@ export class Shell {
       const entry = document.createElement("button");
       entry.type = "button";
       entry.className = "menu-item";
-      entry.setAttribute("role", "menuitem");
+      const checkable = item.checkable === true;
+      const checked = checkable && this.isActionChecked(item.action);
+      entry.setAttribute("role", checkable ? "menuitemcheckbox" : "menuitem");
+      if (checkable) {
+        entry.setAttribute("aria-checked", String(checked));
+      }
       entry.dataset.action = item.action;
 
+      if (checkable) {
+        const mark = document.createElement("span");
+        mark.className = "menu-check";
+        mark.setAttribute("aria-hidden", "true");
+        mark.textContent = checked ? "✓" : "";
+        entry.append(mark);
+      }
+
       const label = document.createElement("span");
+      label.className = "menu-label";
       label.textContent = item.label;
       entry.append(label);
 
@@ -517,7 +531,11 @@ export class Shell {
     dropdown.style.top = `${rect.bottom + 6}px`;
 
     dropdown.addEventListener("keydown", (event) => {
-      const items = Array.from(dropdown.querySelectorAll<HTMLButtonElement>('[role="menuitem"]'));
+      const items = Array.from(
+        dropdown.querySelectorAll<HTMLButtonElement>(
+          '[role="menuitem"], [role="menuitemcheckbox"]',
+        ),
+      );
       const index = items.indexOf(document.activeElement as HTMLButtonElement);
 
       if (event.key === "ArrowDown") {
@@ -534,7 +552,9 @@ export class Shell {
     });
 
     this.menuLayer.replaceChildren(dropdown);
-    dropdown.querySelector<HTMLButtonElement>('[role="menuitem"]')?.focus();
+    dropdown
+      .querySelector<HTMLButtonElement>('[role="menuitem"], [role="menuitemcheckbox"]')
+      ?.focus();
   }
 
   private closeMenus(): void {
@@ -576,6 +596,9 @@ export class Shell {
         break;
       case "file.export":
         await this.showExport();
+        break;
+      case "file.autosave":
+        this.toggleAutosave();
         break;
       case "file.close":
         await this.closeActiveTab();
@@ -1098,27 +1121,28 @@ export class Shell {
       }
 
       event.preventDefault();
-      this.captureCursor();
-
-      if (this.workspace.hasDirty()) {
-        const choice = await this.askCloseAll();
-        if (choice === "cancel") {
-          return;
-        }
-        if (choice === "save" && !(await this.saveAll())) {
-          return;
-        }
-      }
-
-      await this.persistSession();
-      await host.recoveryClear().catch(() => undefined);
-      await host.recoveryMarkClean().catch(() => undefined);
-      this.allowClose = true;
 
       try {
-        await host.window.close();
-      } catch {
+        this.captureCursor();
+
+        if (this.workspace.hasDirty()) {
+          const choice = await this.askCloseAll();
+          if (choice === "cancel") {
+            return;
+          }
+          if (choice === "save" && !(await this.saveAll())) {
+            return;
+          }
+        }
+
+        await this.persistSession();
+        await host.recoveryClear().catch(() => undefined);
+        await host.recoveryMarkClean().catch(() => undefined);
+        this.allowClose = true;
+        await host.window.destroy();
+      } catch (error) {
         this.allowClose = false;
+        this.toast(`No se pudo cerrar Murk: ${errorMessage(error)}`);
       }
     });
   }
@@ -1424,6 +1448,31 @@ export class Shell {
         void this.autoSaveDirty();
       }, this.settings.autosaveIntervalMs);
     }
+  }
+
+  private isActionChecked(action: ActionId): boolean {
+    switch (action) {
+      case "file.autosave":
+        return this.settings.autosave !== "off";
+      default:
+        return false;
+    }
+  }
+
+  private toggleAutosave(): void {
+    const enabled = this.settings.autosave === "off";
+    const next: Settings["autosave"] = enabled ? "interval" : "off";
+    this.settings = { ...this.settings, autosave: next };
+    applySettings(this.settings);
+    this.configureAutosave();
+    void host.settingsSave(this.settings).catch((error: unknown) => {
+      this.toast(`No se pudieron guardar las preferencias: ${errorMessage(error)}`);
+    });
+    this.toast(
+      enabled
+        ? `Autoguardado activado (cada ${Math.round(this.settings.autosaveIntervalMs / 1000)} s).`
+        : "Autoguardado desactivado.",
+    );
   }
 
   private docId(tab: Tab): string {
