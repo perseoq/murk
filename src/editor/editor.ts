@@ -41,13 +41,9 @@ import {
 } from "@codemirror/view";
 import { tags } from "@lezer/highlight";
 
+import { livePreview, livePreviewAtomicRanges } from "./live-preview";
+
 const markdownHighlight = HighlightStyle.define([
-  { tag: tags.heading1, fontSize: "1.55em", fontWeight: "700" },
-  { tag: tags.heading2, fontSize: "1.3em", fontWeight: "700" },
-  { tag: tags.heading3, fontSize: "1.15em", fontWeight: "600" },
-  { tag: tags.heading4, fontWeight: "600" },
-  { tag: tags.heading5, fontWeight: "600" },
-  { tag: tags.heading6, fontWeight: "600", color: "var(--murk-muted)" },
   { tag: tags.strong, fontWeight: "700" },
   { tag: tags.emphasis, fontStyle: "italic" },
   { tag: tags.strikethrough, textDecoration: "line-through" },
@@ -174,6 +170,8 @@ export class MurkEditor {
       markdown({ base: markdownLanguage, codeLanguages: languages }),
       syntaxHighlighting(defaultHighlightStyle, { fallback: true }),
       syntaxHighlighting(markdownHighlight),
+      livePreview,
+      livePreviewAtomicRanges,
       placeholder("Empieza a escribir en Markdown…"),
       EditorView.contentAttributes.of({
         "aria-label": "Editor de Markdown",
