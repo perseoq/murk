@@ -27,7 +27,7 @@ import {
   search,
   searchKeymap,
 } from "@codemirror/search";
-import { Compartment, EditorState, type Extension } from "@codemirror/state";
+import { Compartment, EditorState, Prec, type Extension } from "@codemirror/state";
 import {
   EditorView,
   crosshairCursor,
@@ -45,6 +45,13 @@ import "katex/dist/katex.min.css";
 import { blockWidgetsField } from "./block-widgets";
 import { refreshEffect } from "./effects";
 import { livePreview, livePreviewAtomicRanges } from "./live-preview";
+import {
+  handleTablePaste,
+  insertTable as insertTableCommand,
+  runTableAction,
+  tableKeymap,
+  type TableAction,
+} from "./table";
 
 const markdownHighlight = HighlightStyle.define([
   { tag: tags.strong, fontWeight: "700" },
@@ -163,6 +170,7 @@ export class MurkEditor {
       EditorView.lineWrapping,
       search({ top: true }),
       highlightSelectionMatches(),
+      Prec.high(keymap.of([{ key: "Mod-Shift-t", run: insertTableCommand }, ...tableKeymap])),
       keymap.of([
         ...defaultKeymap,
         ...historyKeymap,
@@ -182,6 +190,9 @@ export class MurkEditor {
         spellcheck: "false",
         autocorrect: "off",
         autocapitalize: "off",
+      }),
+      EditorView.domEventHandlers({
+        paste: (event, view) => handleTablePaste(event, view),
       }),
       EditorView.updateListener.of((update) => {
         if (update.docChanged) {
@@ -305,6 +316,14 @@ export class MurkEditor {
 
   refresh(): void {
     this.view.dispatch({ effects: refreshEffect.of(null) });
+  }
+
+  insertTable(): boolean {
+    return insertTableCommand(this.view);
+  }
+
+  tableAction(action: TableAction): boolean {
+    return runTableAction(this.view, action);
   }
 
   undo(): boolean {

@@ -23,7 +23,18 @@ export type ActionId =
   | "view.theme.dark"
   | "view.theme.system"
   | "help.shortcuts"
-  | "help.about";
+  | "help.about"
+  | "table.insert"
+  | "table.rowAbove"
+  | "table.rowBelow"
+  | "table.deleteRow"
+  | "table.colLeft"
+  | "table.colRight"
+  | "table.deleteCol"
+  | "table.alignLeft"
+  | "table.alignCenter"
+  | "table.alignRight"
+  | "table.format";
 
 export interface MenuItemDef {
   label: string;
@@ -75,6 +86,27 @@ export const MENUS: MenuDef[] = [
       { label: "Tema claro", action: "view.theme.light", separatorBefore: true },
       { label: "Tema oscuro", action: "view.theme.dark" },
       { label: "Tema del sistema", action: "view.theme.system" },
+    ],
+  },
+  {
+    id: "table",
+    label: "Tabla",
+    items: [
+      { label: "Insertar tabla", action: "table.insert", shortcut: "Ctrl+Shift+T" },
+      {
+        label: "Insertar fila arriba",
+        action: "table.rowAbove",
+        separatorBefore: true,
+      },
+      { label: "Insertar fila abajo", action: "table.rowBelow" },
+      { label: "Eliminar fila", action: "table.deleteRow" },
+      { label: "Insertar columna a la izquierda", action: "table.colLeft", separatorBefore: true },
+      { label: "Insertar columna a la derecha", action: "table.colRight" },
+      { label: "Eliminar columna", action: "table.deleteCol" },
+      { label: "Alinear a la izquierda", action: "table.alignLeft", separatorBefore: true },
+      { label: "Centrar", action: "table.alignCenter" },
+      { label: "Alinear a la derecha", action: "table.alignRight" },
+      { label: "Formatear tabla", action: "table.format", separatorBefore: true },
     ],
   },
   {

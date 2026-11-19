@@ -9,6 +9,8 @@ import type { SyntaxNode } from "@lezer/common";
 import { refreshEffect } from "./effects";
 import { MathWidget } from "./widgets/math";
 import { MermaidWidget, isDarkTheme } from "./widgets/mermaid";
+import { TableWidget } from "./widgets/table";
+import { tableFromNode } from "./table";
 
 interface BlockWidgetResult {
   decorations: DecorationSet;
@@ -49,6 +51,27 @@ export function buildBlockDecorations(state: EditorState): BlockWidgetResult {
 
   syntaxTree(state).iterate({
     enter: (node) => {
+      if (node.name === "Table") {
+        if (touches(node.from, node.to) || isNestedBlock(state, node.from)) {
+          return;
+        }
+
+        const table = tableFromNode(state, node.node);
+        if (!table) {
+          return;
+        }
+
+        const key = `${node.from}:${node.to}:${doc.sliceString(node.from, node.to)}`;
+        ranges.push(
+          Decoration.replace({
+            block: true,
+            widget: new TableWidget(table, key),
+          }).range(node.from, node.to),
+        );
+        atomic.push(Decoration.replace({}).range(node.from, node.to));
+        return;
+      }
+
       if (node.name !== "FencedCode") {
         return;
       }

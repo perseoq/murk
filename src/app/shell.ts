@@ -13,6 +13,7 @@ import type {
 } from "../host";
 import { ENCODING_OPTIONS, convertEol, encodingDisplayName } from "./encoding";
 import { MurkEditor } from "../editor/editor";
+import type { TableAction } from "../editor/table";
 import { setImageDocumentPath, clearImageCache } from "../editor/widgets/image";
 import { MENUS, type ActionId, type MenuDef } from "./menus";
 import { DEFAULT_SETTINGS, applySettings, normalizeSettings } from "./settings";
@@ -443,6 +444,40 @@ export class Shell {
         break;
       case "edit.replace":
         this.editCommand("replace");
+        break;
+      case "table.insert":
+        this.editor.insertTable();
+        this.editor.focus();
+        break;
+      case "table.rowAbove":
+        this.runTable("rowAbove");
+        break;
+      case "table.rowBelow":
+        this.runTable("rowBelow");
+        break;
+      case "table.deleteRow":
+        this.runTable("deleteRow");
+        break;
+      case "table.colLeft":
+        this.runTable("colLeft");
+        break;
+      case "table.colRight":
+        this.runTable("colRight");
+        break;
+      case "table.deleteCol":
+        this.runTable("deleteCol");
+        break;
+      case "table.alignLeft":
+        this.runTable("alignLeft");
+        break;
+      case "table.alignCenter":
+        this.runTable("alignCenter");
+        break;
+      case "table.alignRight":
+        this.runTable("alignRight");
+        break;
+      case "table.format":
+        this.runTable("format");
         break;
       case "view.settings":
         this.showSettings();
@@ -1006,6 +1041,13 @@ export class Shell {
   private afterMutation(): void {
     this.renderAll();
     this.scheduleSession();
+  }
+
+  private runTable(action: TableAction): void {
+    if (!this.editor.tableAction(action)) {
+      this.toast("Coloca el cursor dentro de una tabla.");
+    }
+    this.editor.focus();
   }
 
   private async watchPath(path: string): Promise<void> {

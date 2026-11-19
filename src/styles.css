@@ -435,6 +435,60 @@ body {
   cursor: default;
 }
 
+/* Tablas A6 */
+.cm-md-table {
+  width: 100%;
+  margin: 0.8em 0;
+  border-collapse: collapse;
+  font-size: 0.95em;
+}
+
+.cm-md-table th,
+.cm-md-table td {
+  padding: 6px 10px;
+  border: 1px solid var(--murk-border);
+  vertical-align: top;
+}
+
+.cm-md-table th {
+  background: var(--murk-bg);
+  font-weight: 600;
+}
+
+.cm-md-table tr:nth-child(even) td {
+  background: color-mix(in srgb, var(--murk-bg) 55%, transparent);
+}
+
+.cm-md-table code {
+  padding: 1px 4px;
+  border-radius: 4px;
+  background: var(--murk-code-bg);
+  font-family: var(--murk-mono);
+  font-size: 0.9em;
+}
+
+.cm-md-table-link {
+  color: var(--murk-accent);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.cm-md-align-left {
+  text-align: left;
+}
+
+.cm-md-align-center {
+  text-align: center;
+}
+
+.cm-md-align-right {
+  text-align: right;
+}
+
+.cm-md-align-default {
+  text-align: left;
+}
+
 .statusbar {
   display: flex;
   align-items: center;

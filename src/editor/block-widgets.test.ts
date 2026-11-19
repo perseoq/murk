@@ -74,4 +74,16 @@ describe("widgets de bloque (A5)", () => {
 
     expect(result.widgets).toBe(0);
   });
+
+  it("sustituye una tabla por un widget y la revela al entrar", () => {
+    const doc = "| A | B |\n|---|---|\n| 1 | 2 |\n\ntexto";
+    const outside = collect(doc);
+
+    expect(outside.widgets).toBe(1);
+    expect(outside.atomic).toBe(1);
+
+    const inside = collect(doc, 3);
+    expect(inside.widgets).toBe(0);
+    expect(inside.atomic).toBe(0);
+  });
 });
