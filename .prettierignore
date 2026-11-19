@@ -1,0 +1,16 @@
+# La documentación se mantiene con su propio formato.
+*.md
+docs/
+flows/
+diagrams/
+specs/
+adr/
+
+# Generados
+dist/
+node_modules/
+src-tauri/target/
+package-lock.json
+
+# Binarios
+src-tauri/icons/
