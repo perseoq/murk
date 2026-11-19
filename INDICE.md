@@ -23,6 +23,7 @@
 murk/
 ├── README.md
 ├── INDICE.md
+├── AGENT_PHASES.md     plan de ejecución por fases agénticas
 ├── LICENSE.md          GPL-3.0 (texto completo)
 ├── NOTICE.md           licencias de terceros
 ├── CONTRIBUTING.md     cómo contribuir
