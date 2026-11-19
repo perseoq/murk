@@ -19,8 +19,10 @@ tauri-build = { version = "2.7.6", features = [] }
 base64 = "0.22"
 blake3 = "1.8.7"
 chardetng = "1.0.0"
+comrak = "1.0.0"
 encoding_rs = "0.8.44"
 notify = "8.2.2"
+regex = "1.13.2"
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 tauri = { version = "2.12.7", features = [] }

@@ -88,6 +88,9 @@ pub struct Settings {
     pub tab_size: u32,
     pub autosave: String,
     pub autosave_interval_ms: u32,
+    pub pandoc_path: String,
+    pub chromium_path: String,
+    pub pdf_engine: String,
 }
 
 impl Default for Settings {
@@ -99,6 +102,9 @@ impl Default for Settings {
             tab_size: 4,
             autosave: "off".to_string(),
             autosave_interval_ms: 30_000,
+            pandoc_path: String::new(),
+            chromium_path: String::new(),
+            pdf_engine: "chromium".to_string(),
         }
     }
 }
@@ -111,11 +117,20 @@ impl Settings {
         if !matches!(self.autosave.as_str(), "off" | "interval" | "blur" | "save") {
             self.autosave = "off".to_string();
         }
+        if !matches!(self.pdf_engine.as_str(), "chromium" | "pandoc") {
+            self.pdf_engine = "chromium".to_string();
+        }
         self.font_size = self.font_size.clamp(10, 32);
         self.tab_size = self.tab_size.clamp(1, 8);
         self.autosave_interval_ms = self.autosave_interval_ms.clamp(5_000, 600_000);
         if self.font_family.chars().count() > 200 {
             self.font_family = self.font_family.chars().take(200).collect();
+        }
+        if self.pandoc_path.chars().count() > 500 {
+            self.pandoc_path = self.pandoc_path.chars().take(500).collect();
+        }
+        if self.chromium_path.chars().count() > 500 {
+            self.chromium_path = self.chromium_path.chars().take(500).collect();
         }
         self
     }

@@ -4,5 +4,9 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
 fn main() {
+    if let Some(code) = murk_lib::cli::run(std::env::args().skip(1).collect()) {
+        std::process::exit(code);
+    }
+
     murk_lib::run();
 }

@@ -15,6 +15,7 @@ import type {
   Settings,
   Session,
   SidebarView,
+  ExportFormat,
 } from "../host";
 import { ENCODING_OPTIONS, convertEol, encodingDisplayName } from "./encoding";
 import { MurkEditor } from "../editor/editor";
@@ -97,6 +98,13 @@ function pathBase(path: string): string {
 function relativePath(path: string, root: string): string {
   const prefix = root.endsWith("/") ? root : `${root}/`;
   return path.startsWith(prefix) ? path.slice(prefix.length) : path;
+}
+
+function replaceExtension(path: string, extension: string): string {
+  const slash = path.lastIndexOf("/");
+  const dot = path.lastIndexOf(".");
+  const base = dot > slash ? path.slice(0, dot) : path;
+  return `${base}.${extension}`;
 }
 
 export class Shell {
@@ -519,6 +527,9 @@ export class Shell {
         break;
       case "file.history":
         await this.showHistory();
+        break;
+      case "file.export":
+        await this.showExport();
         break;
       case "file.close":
         await this.closeActiveTab();
@@ -1645,6 +1656,92 @@ export class Shell {
     }
   }
 
+  private async showExport(): Promise<void> {
+    const tab = this.workspace.active;
+    if (!tab) {
+      this.toast("No hay documento activo.");
+      return;
+    }
+
+    this.captureCursor();
+
+    const form = document.createElement("form");
+    form.className = "settings-form";
+    form.innerHTML = `
+      <label class="field">
+        <span>Formato</span>
+        <select id="export-format">
+          <option value="html">HTML</option>
+          <option value="pdf">PDF</option>
+          <option value="docx">DOCX</option>
+          <option value="epub">EPUB</option>
+          <option value="odt">ODT</option>
+          <option value="latex">LaTeX</option>
+          <option value="md">Markdown limpio</option>
+        </select>
+      </label>
+      <label class="field field-inline">
+        <input id="export-embed" type="checkbox" checked />
+        <span>Incrustar imágenes (HTML/PDF)</span>
+      </label>
+      <p class="field-hint">DOCX, EPUB, ODT y LaTeX requieren Pandoc. El PDF usa Chromium o Pandoc según Preferencias.</p>
+    `;
+
+    const formatSelect = form.querySelector<HTMLSelectElement>("#export-format");
+    const embed = form.querySelector<HTMLInputElement>("#export-embed");
+
+    this.openModal({
+      title: "Exportar documento",
+      message: tab.name,
+      body: form,
+      onEscape: () => this.closeModal(),
+      actions: [
+        {
+          label: "Exportar",
+          primary: true,
+          onClick: () => {
+            void (async () => {
+              const format = (formatSelect?.value ?? "html") as ExportFormat;
+              const extension = format === "latex" ? "tex" : format;
+              const defaultPath = tab.path
+                ? replaceExtension(tab.path, extension)
+                : `${tab.name}.${extension}`;
+
+              let output: string | null;
+              try {
+                output = await host.saveExportDialog(defaultPath, format);
+              } catch (error) {
+                this.toast(errorMessage(error));
+                return;
+              }
+              if (!output) {
+                return;
+              }
+
+              this.closeModal();
+              this.toast("Exportando…");
+
+              try {
+                const result = await host.exportDocument({
+                  sourcePath: tab.path,
+                  outputPath: output,
+                  format,
+                  content: tab.content,
+                  title: tab.name,
+                  embedImages: embed?.checked ?? true,
+                });
+                this.toast(`Exportado: ${result.path} (${result.engine})`);
+              } catch (error) {
+                this.toast(errorMessage(error));
+              }
+            })();
+          },
+        },
+        { label: "Cancelar", onClick: () => this.closeModal() },
+      ],
+    });
+  }
+
   private applySidebarLayout(): void {
     if (!this.workspaceElement || !this.sidebarElement) {
       return;
@@ -2583,6 +2680,21 @@ export class Shell {
         <span>Intervalo de autoguardado (segundos)</span>
         <input id="setting-autosave-interval" type="number" min="5" max="600" step="5" />
       </label>
+      <label class="field">
+        <span>Motor PDF</span>
+        <select id="setting-pdf-engine">
+          <option value="chromium">Chromium (fiel)</option>
+          <option value="pandoc">Pandoc + LaTeX</option>
+        </select>
+      </label>
+      <label class="field">
+        <span>Ruta de Pandoc</span>
+        <input id="setting-pandoc" type="text" placeholder="pandoc (PATH)" maxlength="500" />
+      </label>
+      <label class="field">
+        <span>Ruta de Chromium</span>
+        <input id="setting-chromium" type="text" placeholder="Detección automática" maxlength="500" />
+      </label>
     `;
 
     const theme = form.querySelector<HTMLSelectElement>("#setting-theme");
@@ -2591,6 +2703,9 @@ export class Shell {
     const tabSize = form.querySelector<HTMLInputElement>("#setting-tab");
     const autosave = form.querySelector<HTMLSelectElement>("#setting-autosave");
     const autosaveInterval = form.querySelector<HTMLInputElement>("#setting-autosave-interval");
+    const pdfEngine = form.querySelector<HTMLSelectElement>("#setting-pdf-engine");
+    const pandocPath = form.querySelector<HTMLInputElement>("#setting-pandoc");
+    const chromiumPath = form.querySelector<HTMLInputElement>("#setting-chromium");
 
     if (theme) theme.value = this.settings.theme;
     if (font) font.value = this.settings.fontFamily;
@@ -2600,6 +2715,9 @@ export class Shell {
     if (autosaveInterval) {
       autosaveInterval.value = String(Math.round(this.settings.autosaveIntervalMs / 1000));
     }
+    if (pdfEngine) pdfEngine.value = this.settings.pdfEngine;
+    if (pandocPath) pandocPath.value = this.settings.pandocPath;
+    if (chromiumPath) chromiumPath.value = this.settings.chromiumPath;
 
     this.openModal({
       title: "Preferencias",
@@ -2619,6 +2737,9 @@ export class Shell {
               autosaveIntervalMs: autosaveInterval?.value
                 ? Number(autosaveInterval.value) * 1000
                 : this.settings.autosaveIntervalMs,
+              pandocPath: pandocPath?.value ?? "",
+              chromiumPath: chromiumPath?.value ?? "",
+              pdfEngine: (pdfEngine?.value as Settings["pdfEngine"]) ?? "chromium",
             });
             this.settings = next;
             applySettings(next);

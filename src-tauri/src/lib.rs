@@ -1,8 +1,11 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 // Copyright (C) 2026 Murk contributors
 
+pub mod cli;
+
 mod commands;
 mod error;
+mod export;
 mod recovery;
 mod store;
 mod watcher;
@@ -27,6 +30,7 @@ pub fn run() {
             commands::recent_clear,
             workspace::dir_list,
             workspace::search_workspace,
+            export::export_document,
             recovery::recovery_check_crash,
             recovery::recovery_mark_clean,
             recovery::recovery_write,

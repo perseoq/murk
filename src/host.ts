@@ -9,6 +9,7 @@ import { open as openDialog, save as saveDialog } from "@tauri-apps/plugin-dialo
 
 export type ThemeMode = "light" | "dark" | "system";
 export type AutosaveMode = "off" | "interval" | "blur" | "save";
+export type PdfEngine = "chromium" | "pandoc";
 export type Eol = "lf" | "crlf" | "cr";
 export type FileChangeKind = "created" | "modified" | "removed";
 
@@ -70,6 +71,9 @@ export interface Settings {
   tabSize: number;
   autosave: AutosaveMode;
   autosaveIntervalMs: number;
+  pandocPath: string;
+  chromiumPath: string;
+  pdfEngine: PdfEngine;
 }
 
 export interface RecoverySnapshot {
@@ -89,6 +93,24 @@ export interface HistoryMeta {
   size: number;
   hash: string;
   trigger: string;
+}
+
+export type ExportFormat = "html" | "pdf" | "docx" | "epub" | "odt" | "latex" | "md";
+
+export interface ExportRequest {
+  sourcePath: string | null;
+  outputPath: string;
+  format: ExportFormat;
+  content: string;
+  title: string;
+  embedImages: boolean;
+}
+
+export interface ExportResult {
+  path: string;
+  format: string;
+  engine: string;
+  size: number;
 }
 
 export interface SessionFile {
@@ -354,6 +376,21 @@ export const host = {
       return;
     }
     await call<void>("history_clear", { path });
+  },
+
+  async saveExportDialog(defaultPath: string, format: ExportFormat): Promise<string | null> {
+    requireDesktop();
+    const extension = format === "latex" ? "tex" : format;
+    const result = await saveDialog({
+      title: "Exportar documento",
+      defaultPath,
+      filters: [{ name: format.toUpperCase(), extensions: [extension] }],
+    });
+    return result ?? null;
+  },
+
+  exportDocument(request: ExportRequest): Promise<ExportResult> {
+    return call<ExportResult>("export_document", { request });
   },
 
   async settingsLoad(): Promise<Settings | null> {

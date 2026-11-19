@@ -10,6 +10,9 @@ export const DEFAULT_SETTINGS: Settings = {
   tabSize: 4,
   autosave: "off",
   autosaveIntervalMs: 30_000,
+  pandocPath: "",
+  chromiumPath: "",
+  pdfEngine: "chromium",
 };
 
 export function normalizeTheme(value: unknown): ThemeMode {
@@ -18,6 +21,10 @@ export function normalizeTheme(value: unknown): ThemeMode {
 
 export function normalizeAutosave(value: unknown): Settings["autosave"] {
   return value === "interval" || value === "blur" || value === "save" ? value : "off";
+}
+
+export function normalizePdfEngine(value: unknown): Settings["pdfEngine"] {
+  return value === "pandoc" ? "pandoc" : "chromium";
 }
 
 export function normalizeSettings(input: Partial<Settings> | null | undefined): Settings {
@@ -38,6 +45,9 @@ export function normalizeSettings(input: Partial<Settings> | null | undefined): 
     tabSize: Math.min(8, Math.max(1, Math.round(tabSize))),
     autosave: normalizeAutosave(input?.autosave),
     autosaveIntervalMs: Math.min(600_000, Math.max(5_000, Math.round(interval))),
+    pandocPath: typeof input?.pandocPath === "string" ? input.pandocPath.slice(0, 500) : "",
+    chromiumPath: typeof input?.chromiumPath === "string" ? input.chromiumPath.slice(0, 500) : "",
+    pdfEngine: normalizePdfEngine(input?.pdfEngine),
   };
 }
 
