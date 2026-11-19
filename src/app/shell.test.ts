@@ -284,4 +284,34 @@ describe("Shell · flujo abrir → editar → guardar", () => {
     expect(tabs[0]?.textContent).toBe("Sin título");
     expect(root.querySelector<HTMLElement>("#status-file")?.textContent).toBe("Sin título");
   });
+
+  it("oculta y muestra la barra lateral con el botón hamburguesa", async () => {
+    const root = document.querySelector<HTMLElement>("#app");
+    if (!root) {
+      throw new Error("falta #app");
+    }
+
+    shell = new Shell(root);
+    await shell.boot();
+
+    const toggle = root.querySelector<HTMLButtonElement>("#sidebar-toggle");
+    const workspace = root.querySelector<HTMLElement>("#workspace");
+    const sidebar = root.querySelector<HTMLElement>("#sidebar");
+    if (!toggle || !workspace || !sidebar) {
+      throw new Error("faltan elementos de la barra lateral");
+    }
+
+    expect(toggle.getAttribute("aria-expanded")).toBe("true");
+    expect(sidebar.getAttribute("aria-hidden")).toBe("false");
+
+    toggle.click();
+    expect(workspace.classList.contains("sidebar-hidden")).toBe(true);
+    expect(sidebar.getAttribute("aria-hidden")).toBe("true");
+    expect(toggle.getAttribute("aria-expanded")).toBe("false");
+
+    toggle.click();
+    expect(workspace.classList.contains("sidebar-hidden")).toBe(false);
+    expect(sidebar.getAttribute("aria-hidden")).toBe("false");
+    expect(toggle.getAttribute("aria-expanded")).toBe("true");
+  });
 });

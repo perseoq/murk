@@ -180,6 +180,7 @@ pub struct Session {
     pub workspace_root: String,
     pub sidebar_view: String,
     pub sidebar_width: u32,
+    pub sidebar_visible: bool,
 }
 
 impl Default for Session {
@@ -194,6 +195,7 @@ impl Default for Session {
             workspace_root: String::new(),
             sidebar_view: "files".to_string(),
             sidebar_width: 260,
+            sidebar_visible: true,
         }
     }
 }

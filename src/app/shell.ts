@@ -123,6 +123,7 @@ export class Shell {
   private workspaceElement!: HTMLElement;
   private sidebarElement!: HTMLElement;
   private sidebarContent!: HTMLElement;
+  private sidebarToggle!: HTMLButtonElement;
   private sidebarResizer!: HTMLElement;
   private tabsElement!: HTMLElement;
   private statusFile!: HTMLElement;
@@ -302,6 +303,7 @@ export class Shell {
         ? session.sidebarView
         : "files";
     this.sidebarWidth = Math.min(480, Math.max(180, session.sidebarWidth || 260));
+    this.sidebarVisible = session.sidebarVisible !== false;
   }
 
   private async restoreSession(): Promise<void> {
@@ -344,6 +346,15 @@ export class Shell {
     this.root.innerHTML = `
       <div class="shell">
         <header class="menubar">
+          <button
+            class="sidebar-toggle"
+            id="sidebar-toggle"
+            type="button"
+            title="Mostrar u ocultar barra lateral (Ctrl+Shift+1)"
+            aria-label="Mostrar u ocultar barra lateral"
+            aria-controls="sidebar"
+            aria-expanded="true"
+          >☰</button>
           <div class="brand" aria-hidden="true">M</div>
           <nav class="menus" role="menubar" aria-label="Menú principal"></nav>
           <div class="menubar-spacer"></div>
@@ -398,6 +409,7 @@ export class Shell {
     this.workspaceElement = this.query<HTMLElement>("#workspace");
     this.sidebarElement = this.query<HTMLElement>("#sidebar");
     this.sidebarContent = this.query<HTMLElement>("#sidebar-content");
+    this.sidebarToggle = this.query<HTMLButtonElement>("#sidebar-toggle");
     this.sidebarResizer = this.query<HTMLElement>("#sidebar-resizer");
     this.statusFile = this.query<HTMLElement>("#status-file");
     this.statusCount = this.query<HTMLElement>("#status-count");
@@ -689,6 +701,11 @@ export class Shell {
   private bindShellEvents(): void {
     this.query<HTMLButtonElement>("#tab-new").addEventListener("click", () => {
       this.newTab();
+    });
+
+    this.sidebarToggle.addEventListener("click", () => {
+      this.toggleSidebar();
+      this.sidebarToggle.focus();
     });
 
     this.statusEncoding.addEventListener("click", () => {
@@ -1376,6 +1393,7 @@ export class Shell {
         workspaceRoot: this.workspaceRoot,
         sidebarView: this.sidebarView,
         sidebarWidth: this.sidebarWidth,
+        sidebarVisible: this.sidebarVisible,
       });
       await host.sessionSave(session);
     } catch {
@@ -1840,6 +1858,10 @@ export class Shell {
       ? `${this.sidebarWidth}px minmax(0, 1fr)`
       : "minmax(0, 1fr)";
     this.sidebarElement.setAttribute("aria-hidden", String(!this.sidebarVisible));
+    if (this.sidebarToggle) {
+      this.sidebarToggle.setAttribute("aria-expanded", String(this.sidebarVisible));
+      this.sidebarToggle.classList.toggle("active", !this.sidebarVisible);
+    }
   }
 
   private toggleSidebar(): void {

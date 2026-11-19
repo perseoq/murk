@@ -233,6 +233,7 @@ export class Workspace {
       workspaceRoot?: string | null;
       sidebarView?: SidebarView;
       sidebarWidth?: number;
+      sidebarVisible?: boolean;
     } = {},
   ): Session {
     const openFiles = this.tabs
@@ -261,6 +262,7 @@ export class Workspace {
       workspaceRoot: context.workspaceRoot ?? "",
       sidebarView: context.sidebarView ?? "files",
       sidebarWidth: context.sidebarWidth ?? 260,
+      sidebarVisible: context.sidebarVisible ?? true,
     };
   }
 }

@@ -140,6 +140,7 @@ export interface Session {
   workspaceRoot: string;
   sidebarView: SidebarView;
   sidebarWidth: number;
+  sidebarVisible: boolean;
 }
 
 export type SidebarView = "files" | "outline" | "search";
