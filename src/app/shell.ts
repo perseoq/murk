@@ -12,6 +12,7 @@ import type {
   Session,
 } from "../host";
 import { ENCODING_OPTIONS, convertEol, encodingDisplayName } from "./encoding";
+import { MurkEditor } from "../editor/editor";
 import { MENUS, type ActionId, type MenuDef } from "./menus";
 import { DEFAULT_SETTINGS, applySettings, normalizeSettings } from "./settings";
 import { Workspace, countWords, displayPath, type Tab } from "./state";
@@ -86,7 +87,7 @@ export class Shell {
   private settings: Settings = { ...DEFAULT_SETTINGS };
   private restoredSession: Session | null = null;
 
-  private editor!: HTMLTextAreaElement;
+  private editor!: MurkEditor;
   private tabsElement!: HTMLElement;
   private statusFile!: HTMLElement;
   private statusCount!: HTMLElement;
@@ -151,6 +152,7 @@ export class Shell {
         void host.unwatchFile(tab.path).catch(() => undefined);
       }
     }
+    this.editor?.destroy();
   }
 
   private async loadState(): Promise<void> {
@@ -222,7 +224,7 @@ export class Shell {
           <button class="tab-new" id="tab-new" type="button" title="Nueva pestaña (Ctrl+N)" aria-label="Nueva pestaña">+</button>
         </div>
         <main class="editor-area">
-          <textarea id="editor" class="editor" spellcheck="false" autocomplete="off" aria-label="Editor de Markdown"></textarea>
+          <div id="editor" class="editor-host"></div>
         </main>
         <footer class="statusbar">
           <span id="status-file" class="status-file">Sin título</span>
@@ -238,7 +240,17 @@ export class Shell {
       </div>
     `;
 
-    this.editor = this.query<HTMLTextAreaElement>("#editor");
+    this.editor = new MurkEditor(this.query<HTMLElement>("#editor"), {
+      tabSize: this.settings.tabSize,
+      onChange: (content) => this.handleContentChange(content),
+      onCursor: (cursor) => {
+        const tab = this.workspace.active;
+        if (tab) {
+          tab.cursor = cursor;
+        }
+      },
+    });
+
     this.tabsElement = this.query<HTMLElement>(".tabs");
     this.statusFile = this.query<HTMLElement>("#status-file");
     this.statusCount = this.query<HTMLElement>("#status-count");
@@ -414,6 +426,15 @@ export class Shell {
       case "edit.selectAll":
         this.editCommand("selectAll");
         break;
+      case "edit.find":
+        this.editCommand("find");
+        break;
+      case "edit.findNext":
+        this.editCommand("findNext");
+        break;
+      case "edit.replace":
+        this.editCommand("replace");
+        break;
       case "view.settings":
         this.showSettings();
         break;
@@ -460,31 +481,6 @@ export class Shell {
       const tab = target.closest<HTMLButtonElement>("[data-tab]");
       if (tab?.dataset.tab) {
         this.activateTab(tab.dataset.tab);
-      }
-    });
-
-    this.editor.addEventListener("input", () => {
-      this.handleEditorInput();
-    });
-
-    this.editor.addEventListener("scroll", () => {
-      const tab = this.workspace.active;
-      if (tab) {
-        this.captureCursor();
-      }
-    });
-
-    this.editor.addEventListener("keydown", (event) => {
-      if (event.key === "Tab") {
-        event.preventDefault();
-        const spaces = " ".repeat(this.settings.tabSize);
-        this.editor.setRangeText(
-          spaces,
-          this.editor.selectionStart,
-          this.editor.selectionEnd,
-          "end",
-        );
-        this.handleEditorInput();
       }
     });
 
@@ -626,6 +622,9 @@ export class Shell {
       void this.rememberRecent(saved.path);
 
       this.workspace.markSaved(tab.id, saved);
+      if (this.workspace.activeId === tab.id) {
+        this.editor.setReadOnly(tab.readOnly);
+      }
       this.renderTabs();
       this.updateStatus();
       this.updateTitle();
@@ -702,6 +701,7 @@ export class Shell {
     }
 
     this.workspace.closeTab(id);
+    this.editor.forget(id);
 
     if (tab.path) {
       void host.unwatchFile(tab.path).catch(() => undefined);
@@ -773,39 +773,64 @@ export class Shell {
     this.editor.focus();
   }
 
-  private handleEditorInput(): void {
+  private handleContentChange(content: string): void {
     const tab = this.workspace.active;
     if (!tab) {
       return;
     }
 
-    this.workspace.updateContent(tab.id, this.editor.value);
-    tab.cursor = this.editor.selectionStart;
+    this.workspace.updateContent(tab.id, content);
+    tab.cursor = this.editor.getCursor();
     this.renderTabs();
     this.updateStatus();
     this.updateTitle();
     this.scheduleSession();
   }
 
-  private editCommand(command: "undo" | "redo" | "cut" | "copy" | "paste" | "selectAll"): void {
-    this.editor.focus();
-
-    if (command === "selectAll") {
-      this.editor.select();
+  private editCommand(
+    command:
+      "undo" | "redo" | "cut" | "copy" | "paste" | "selectAll" | "find" | "findNext" | "replace",
+  ): void {
+    if (command === "find") {
+      this.editor.find();
+      return;
+    }
+    if (command === "replace") {
+      this.editor.replace();
+      return;
+    }
+    if (command === "findNext") {
+      this.editor.findNext();
       return;
     }
 
-    try {
-      const applied = document.execCommand(command);
-      if (!applied && command === "paste") {
-        this.toast("Usa Ctrl+V para pegar.");
-      }
-    } catch {
-      this.toast("El comando no está disponible.");
-    }
-
-    this.handleEditorInput();
     this.editor.focus();
+
+    switch (command) {
+      case "undo":
+        this.editor.undo();
+        return;
+      case "redo":
+        this.editor.redo();
+        return;
+      case "selectAll":
+        this.editor.selectAll();
+        return;
+      case "cut":
+      case "copy":
+      case "paste":
+        try {
+          const applied = document.execCommand(command);
+          if (!applied && command === "paste") {
+            this.toast("Usa Ctrl+V para pegar.");
+          }
+        } catch {
+          this.toast("El comando no está disponible.");
+        }
+        this.handleContentChange(this.editor.getContent());
+        this.editor.focus();
+        return;
+    }
   }
 
   private async setTheme(theme: Settings["theme"]): Promise<void> {
@@ -870,23 +895,21 @@ export class Shell {
 
   private renderEditor(): void {
     const tab = this.workspace.active;
-
     if (!tab) {
-      this.editor.value = "";
-      this.editor.readOnly = true;
       return;
     }
 
-    this.editor.value = tab.content;
-    this.editor.readOnly = tab.readOnly;
+    this.editor.activate(tab.id, tab.content, tab.cursor, tab.readOnly);
+    this.editor.scrollToRatio(tab.scroll);
+  }
 
-    const cursor = Math.min(tab.cursor, tab.content.length);
-    this.editor.setSelectionRange(cursor, cursor);
-
-    requestAnimationFrame(() => {
-      const max = Math.max(1, this.editor.scrollHeight - this.editor.clientHeight);
-      this.editor.scrollTop = Math.round(tab.scroll * max);
-    });
+  /** Reemplaza el texto del documento activo mediante una transacción del editor. */
+  replaceActiveContent(content: string): void {
+    const tab = this.workspace.active;
+    if (!tab) {
+      return;
+    }
+    this.editor.setContent(content, tab.cursor);
   }
 
   private captureCursor(): void {
@@ -895,9 +918,10 @@ export class Shell {
       return;
     }
 
-    tab.cursor = this.editor.selectionStart;
-    const max = Math.max(1, this.editor.scrollHeight - this.editor.clientHeight);
-    tab.scroll = this.editor.scrollTop / max;
+    const capture = this.editor.capture();
+    tab.content = capture.content;
+    tab.cursor = capture.cursor;
+    tab.scroll = capture.scroll;
   }
 
   private updateStatus(): void {
@@ -1055,6 +1079,7 @@ export class Shell {
     const cursor = Math.min(tab.cursor, external.content.length);
     this.workspace.replaceDocument(tab.id, external);
     tab.cursor = cursor;
+    this.editor.invalidate(tab.id);
 
     if (this.workspace.activeId === tab.id) {
       this.renderEditor();
@@ -1180,8 +1205,7 @@ export class Shell {
               tab.content = convertEol(tab.content, nextEol);
               tab.cursor = Math.min(tab.cursor, tab.content.length);
               if (this.workspace.activeId === tab.id) {
-                this.editor.value = tab.content;
-                this.editor.setSelectionRange(tab.cursor, tab.cursor);
+                this.editor.setContent(tab.content, tab.cursor);
               }
             }
 
@@ -1447,6 +1471,7 @@ export class Shell {
             });
             this.settings = next;
             applySettings(next);
+            this.editor.setTabSize(next.tabSize);
             this.closeModal();
             this.toast("Preferencias guardadas");
             void host.settingsSave(next).catch((error: unknown) => {

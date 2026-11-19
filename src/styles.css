@@ -244,28 +244,18 @@ body {
   background: var(--murk-surface);
 }
 
-.editor {
-  display: block;
-  width: 100%;
+.editor-host {
   height: 100%;
-  padding: 32px max(28px, calc((100vw - 920px) / 2));
-  border: 0;
-  outline: none;
-  resize: none;
-  background: var(--murk-surface);
-  color: var(--murk-fg);
-  font-family: var(--editor-font-family);
-  font-size: var(--editor-font-size);
-  line-height: 1.7;
-  tab-size: 4;
+  min-height: 0;
+  overflow: hidden;
 }
 
-.editor::selection {
-  background: var(--murk-selection);
+.editor-host .cm-editor {
+  height: 100%;
 }
 
-.editor[readonly] {
-  color: var(--murk-muted);
+.editor-host .cm-scroller {
+  scrollbar-width: thin;
 }
 
 .statusbar {
@@ -624,7 +614,7 @@ body {
     display: none;
   }
 
-  .editor {
+  .editor-host .cm-content {
     padding: 22px 20px;
   }
 

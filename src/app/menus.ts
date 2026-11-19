@@ -15,6 +15,9 @@ export type ActionId =
   | "edit.copy"
   | "edit.paste"
   | "edit.selectAll"
+  | "edit.find"
+  | "edit.findNext"
+  | "edit.replace"
   | "view.settings"
   | "view.theme.light"
   | "view.theme.dark"
@@ -59,6 +62,9 @@ export const MENUS: MenuDef[] = [
       { label: "Copiar", action: "edit.copy", shortcut: "Ctrl+C" },
       { label: "Pegar", action: "edit.paste", shortcut: "Ctrl+V" },
       { label: "Seleccionar todo", action: "edit.selectAll", shortcut: "Ctrl+A" },
+      { label: "Buscar…", action: "edit.find", shortcut: "Ctrl+F", separatorBefore: true },
+      { label: "Buscar siguiente", action: "edit.findNext", shortcut: "F3" },
+      { label: "Buscar y reemplazar…", action: "edit.replace", shortcut: "Ctrl+H" },
     ],
   },
   {

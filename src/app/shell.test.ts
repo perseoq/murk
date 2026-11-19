@@ -27,6 +27,75 @@ const mocks = vi.hoisted(() => ({
   onCloseRequested: vi.fn(),
 }));
 
+vi.mock("../editor/editor", () => {
+  class FakeMurkEditor {
+    private content = "";
+    private cursor = 0;
+    private readonly onChange: (content: string) => void;
+
+    constructor(
+      _parent: HTMLElement,
+      options: {
+        onChange: (content: string) => void;
+        onCursor: (cursor: number) => void;
+      },
+    ) {
+      this.onChange = options.onChange;
+    }
+
+    activate(_tabId: string, content: string, cursor: number): void {
+      this.content = content;
+      this.cursor = cursor;
+    }
+
+    capture(): { content: string; cursor: number; scroll: number } {
+      return { content: this.content, cursor: this.cursor, scroll: 0 };
+    }
+
+    getContent(): string {
+      return this.content;
+    }
+
+    getCursor(): number {
+      return this.cursor;
+    }
+
+    setContent(content: string, cursor = 0): void {
+      this.content = content;
+      this.cursor = cursor;
+      this.onChange(content);
+    }
+
+    setReadOnly(): void {}
+    setTabSize(): void {}
+    scrollToRatio(): void {}
+    invalidate(): void {}
+    forget(): void {}
+    focus(): void {}
+    undo(): boolean {
+      return true;
+    }
+    redo(): boolean {
+      return true;
+    }
+    selectAll(): boolean {
+      return true;
+    }
+    find(): boolean {
+      return true;
+    }
+    findNext(): boolean {
+      return true;
+    }
+    replace(): boolean {
+      return true;
+    }
+    destroy(): void {}
+  }
+
+  return { MurkEditor: FakeMurkEditor };
+});
+
 vi.mock("../host", () => ({
   host: {
     isDesktop: () => true,
@@ -56,11 +125,6 @@ vi.mock("../host", () => ({
 }));
 
 import { Shell } from "./shell";
-
-function setEditorValue(editor: HTMLTextAreaElement, value: string): void {
-  editor.value = value;
-  editor.dispatchEvent(new Event("input", { bubbles: true }));
-}
 
 describe("Shell · flujo abrir → editar → guardar", () => {
   let shell: Shell | null = null;
@@ -129,18 +193,17 @@ describe("Shell · flujo abrir → editar → guardar", () => {
     shell = new Shell(root);
     await shell.boot();
 
-    const editor = root.querySelector<HTMLTextAreaElement>("#editor");
     const saveState = root.querySelector<HTMLElement>("#save-state");
-    if (!editor || !saveState) {
-      throw new Error("faltan elementos del editor");
+    if (!saveState) {
+      throw new Error("falta el estado de guardado");
     }
 
-    expect(editor.value).toBe("");
+    expect(root.querySelectorAll(".tab-label")).toHaveLength(1);
 
     window.dispatchEvent(new KeyboardEvent("keydown", { key: "o", ctrlKey: true }));
-    await vi.waitFor(() => expect(editor.value).toBe("# Hola"));
+    await vi.waitFor(() => expect(root.querySelector(".tab-label")?.textContent).toBe("nota.md"));
 
-    setEditorValue(editor, "# Hola mundo");
+    shell.replaceActiveContent("# Hola mundo");
     expect(saveState.textContent).toBe("Sin guardar");
 
     window.dispatchEvent(new KeyboardEvent("keydown", { key: "s", ctrlKey: true }));
@@ -158,8 +221,6 @@ describe("Shell · flujo abrir → editar → guardar", () => {
       ),
     );
     await vi.waitFor(() => expect(saveState.textContent).toBe("Guardado"));
-
-    expect(editor.value).toBe("# Hola mundo");
   });
 
   it("crea un documento sin título al arrancar sin sesión", async () => {
