@@ -331,11 +331,6 @@ pub fn write_bytes_atomic(path: &Path, data: &[u8]) -> Result<(), AppError> {
     Ok(())
 }
 
-pub fn write_text(path: &Path, content: &str) -> Result<u64, AppError> {
-    write_bytes_atomic(path, content.as_bytes())?;
-    Ok(content.len() as u64)
-}
-
 pub fn push_recent(mut list: Vec<String>, path: String) -> Vec<String> {
     list.retain(|item| item != &path);
     list.insert(0, path);
@@ -430,12 +425,12 @@ mod tests {
         let directory = tempfile::tempdir().expect("tempdir");
         let path = directory.path().join("nota.md");
 
-        write_text(&path, "primera").expect("guardar");
+        write_bytes_atomic(&path, b"primera").expect("guardar");
         let original = fingerprint_file(&path).expect("fingerprint");
 
         check_fingerprint(&path, Some(&original)).expect("sin cambios");
 
-        write_text(&path, "segunda").expect("modificar");
+        write_bytes_atomic(&path, b"segunda").expect("modificar");
         assert_eq!(
             check_fingerprint(&path, Some(&original))
                 .expect_err("conflicto")
@@ -492,10 +487,10 @@ mod tests {
 
         let directory = tempfile::tempdir().expect("tempdir");
         let path = directory.path().join("nota.md");
-        write_text(&path, "a").expect("guardar");
+        write_bytes_atomic(&path, b"a").expect("guardar");
         fs::set_permissions(&path, fs::Permissions::from_mode(0o600)).expect("permisos");
 
-        write_text(&path, "b").expect("sobrescribir");
+        write_bytes_atomic(&path, b"b").expect("sobrescribir");
 
         let mode = fs::metadata(&path).expect("metadata").permissions().mode() & 0o777;
         assert_eq!(mode, 0o600);
