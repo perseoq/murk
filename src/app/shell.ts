@@ -2,12 +2,22 @@
 // Copyright (C) 2026 Murk contributors
 
 import { host } from "../host";
-import type { Settings, Session } from "../host";
+import type {
+  Eol,
+  FileChangedEvent,
+  OpenedFile,
+  RecentEntry,
+  SaveOptions,
+  Settings,
+  Session,
+} from "../host";
+import { ENCODING_OPTIONS, convertEol, encodingDisplayName } from "./encoding";
 import { MENUS, type ActionId, type MenuDef } from "./menus";
 import { DEFAULT_SETTINGS, applySettings, normalizeSettings } from "./settings";
-import { Workspace, countWords, displayPath } from "./state";
+import { Workspace, countWords, displayPath, type Tab } from "./state";
 
 type CloseChoice = "save" | "discard" | "cancel";
+type ConflictChoice = "reload" | "keep" | "cancel";
 
 interface ModalAction {
   label: string;
@@ -31,6 +41,41 @@ function errorMessage(error: unknown): string {
   return String(error);
 }
 
+function errorCode(error: unknown): string | undefined {
+  if (error && typeof error === "object" && "code" in error) {
+    return String(error.code);
+  }
+  return undefined;
+}
+
+function renderDiff(local: string, external: string): string {
+  const localLines = local.split("\n");
+  const externalLines = external.split("\n");
+  const max = Math.min(localLines.length, externalLines.length);
+
+  let prefix = 0;
+  while (prefix < max && localLines[prefix] === externalLines[prefix]) {
+    prefix += 1;
+  }
+
+  let suffix = 0;
+  while (
+    suffix < max - prefix &&
+    localLines[localLines.length - 1 - suffix] === externalLines[externalLines.length - 1 - suffix]
+  ) {
+    suffix += 1;
+  }
+
+  const localBlock = localLines.slice(prefix, localLines.length - suffix).slice(0, 60);
+  const externalBlock = externalLines.slice(prefix, externalLines.length - suffix).slice(0, 60);
+  const lines = [
+    ...localBlock.map((line) => `- ${line}`),
+    ...externalBlock.map((line) => `+ ${line}`),
+  ];
+
+  return lines.length > 0 ? lines.join("\n") : "(sin diferencias visibles)";
+}
+
 function suggestedFileName(name: string): string {
   return name.toLowerCase() === "sin título" ? "sin-titulo.md" : `${name}.md`;
 }
@@ -45,7 +90,8 @@ export class Shell {
   private tabsElement!: HTMLElement;
   private statusFile!: HTMLElement;
   private statusCount!: HTMLElement;
-  private statusEol!: HTMLElement;
+  private statusEncoding!: HTMLButtonElement;
+  private statusEol!: HTMLButtonElement;
   private saveState!: HTMLElement;
   private menuLayer!: HTMLElement;
   private modalLayer!: HTMLElement;
@@ -56,6 +102,10 @@ export class Shell {
   private allowClose = false;
   private openMenuId: string | null = null;
   private lastTitle = "";
+  private unlistenFileChanged: (() => void) | null = null;
+  private readonly localWrites = new Map<string, number>();
+  private readonly watchTimers = new Map<string, number>();
+  private conflictBusy = false;
 
   constructor(root: HTMLElement) {
     this.root = root;
@@ -67,6 +117,15 @@ export class Shell {
     await this.restoreSession();
     this.bindShellEvents();
     this.bindWindowClose();
+
+    try {
+      this.unlistenFileChanged = await host.listenFileChanged((event) => {
+        this.queueFileEvent(event);
+      });
+    } catch (error) {
+      console.warn("No se pudo escuchar cambios de archivos", error);
+    }
+
     this.intervalHandle = window.setInterval(() => {
       void this.persistSession();
     }, 30_000);
@@ -80,6 +139,17 @@ export class Shell {
     if (this.intervalHandle !== null) {
       clearInterval(this.intervalHandle);
       this.intervalHandle = null;
+    }
+    for (const timer of this.watchTimers.values()) {
+      clearTimeout(timer);
+    }
+    this.watchTimers.clear();
+    this.unlistenFileChanged?.();
+    this.unlistenFileChanged = null;
+    for (const tab of this.workspace.tabs) {
+      if (tab.path) {
+        void host.unwatchFile(tab.path).catch(() => undefined);
+      }
     }
   }
 
@@ -113,6 +183,7 @@ export class Shell {
           const tab = this.workspace.openDocument(document);
           tab.cursor = file.cursor;
           tab.scroll = file.scroll;
+          void this.watchPath(file.path);
         } catch {
           this.toast(`No se pudo reabrir ${file.path}`);
         }
@@ -157,8 +228,8 @@ export class Shell {
           <span id="status-file" class="status-file">Sin título</span>
           <span class="status-spacer"></span>
           <span id="status-count">0 palabras</span>
-          <span class="status-tag">UTF-8</span>
-          <span id="status-eol" class="status-tag">LF</span>
+          <button id="status-encoding" class="status-tag status-button" type="button" title="Cambiar codificación">UTF-8</button>
+          <button id="status-eol" class="status-tag status-button" type="button" title="Cambiar fin de línea">LF</button>
           <span class="status-tag">Texto</span>
         </footer>
         <div id="menu-layer" class="menu-layer"></div>
@@ -171,7 +242,8 @@ export class Shell {
     this.tabsElement = this.query<HTMLElement>(".tabs");
     this.statusFile = this.query<HTMLElement>("#status-file");
     this.statusCount = this.query<HTMLElement>("#status-count");
-    this.statusEol = this.query<HTMLElement>("#status-eol");
+    this.statusEncoding = this.query<HTMLButtonElement>("#status-encoding");
+    this.statusEol = this.query<HTMLButtonElement>("#status-eol");
     this.saveState = this.query<HTMLElement>("#save-state");
     this.menuLayer = this.query<HTMLElement>("#menu-layer");
     this.modalLayer = this.query<HTMLElement>("#modal-layer");
@@ -309,6 +381,9 @@ export class Shell {
       case "file.open":
         await this.openFile();
         break;
+      case "file.recent":
+        await this.showRecent();
+        break;
       case "file.save":
         await this.saveActive(false);
         break;
@@ -363,6 +438,13 @@ export class Shell {
   private bindShellEvents(): void {
     this.query<HTMLButtonElement>("#tab-new").addEventListener("click", () => {
       this.newTab();
+    });
+
+    this.statusEncoding.addEventListener("click", () => {
+      this.showFileFormat();
+    });
+    this.statusEol.addEventListener("click", () => {
+      this.showFileFormat();
     });
 
     this.tabsElement.addEventListener("click", (event) => {
@@ -489,6 +571,8 @@ export class Shell {
     try {
       const document = await host.fileOpen(path);
       this.workspace.openDocument(document);
+      void this.watchPath(path);
+      void this.rememberRecent(path);
       this.afterMutation();
       this.editor.focus();
       return true;
@@ -498,13 +582,14 @@ export class Shell {
     }
   }
 
-  private async saveActive(saveAs: boolean): Promise<boolean> {
+  private async saveActive(saveAs: boolean, attempt = 0): Promise<boolean> {
     const tab = this.workspace.active;
     if (!tab) {
       return false;
     }
 
     this.captureCursor();
+    const previousPath = tab.path;
     let path = tab.path;
 
     if (!path || saveAs) {
@@ -519,10 +604,27 @@ export class Shell {
       }
     }
 
+    const targetIsOriginal = previousPath === path;
+    const options: SaveOptions = {
+      encoding: tab.encoding,
+      bom: tab.bom,
+      eol: tab.eol,
+      convertEol: false,
+      expectedFingerprint: targetIsOriginal && !tab.missing ? tab.fingerprint || null : null,
+    };
+
     this.saveState.textContent = "Guardando…";
 
     try {
-      const saved = await host.fileSave(path, tab.content);
+      const saved = await host.fileSave(path, tab.content, options);
+
+      this.localWrites.set(saved.path, Date.now());
+      if (previousPath && previousPath !== saved.path) {
+        void host.unwatchFile(previousPath).catch(() => undefined);
+      }
+      void this.watchPath(saved.path);
+      void this.rememberRecent(saved.path);
+
       this.workspace.markSaved(tab.id, saved);
       this.renderTabs();
       this.updateStatus();
@@ -531,6 +633,29 @@ export class Shell {
       this.scheduleSession();
       return true;
     } catch (error) {
+      if (errorCode(error) === "conflict" && tab.path && attempt < 1) {
+        this.saveState.textContent = "Conflicto";
+        let external: OpenedFile;
+        try {
+          external = await host.fileOpen(tab.path);
+        } catch (readError) {
+          this.toast(errorMessage(readError));
+          return false;
+        }
+
+        const choice = await this.resolveConflict(tab, external);
+        if (choice === "keep") {
+          tab.fingerprint = external.fingerprint;
+          tab.missing = false;
+          return this.saveActive(false, attempt + 1);
+        }
+        if (choice === "reload") {
+          this.applyExternal(tab, external);
+          this.saveState.textContent = "Recargado";
+        }
+        return false;
+      }
+
       this.saveState.textContent = "Error al guardar";
       this.toast(errorMessage(error));
       return false;
@@ -577,6 +702,10 @@ export class Shell {
     }
 
     this.workspace.closeTab(id);
+
+    if (tab.path) {
+      void host.unwatchFile(tab.path).catch(() => undefined);
+    }
 
     if (this.workspace.tabs.length === 0) {
       this.workspace.createUntitled();
@@ -778,7 +907,12 @@ export class Shell {
     this.statusFile.textContent = tab ? displayPath(tab.path) : "Sin documento";
     this.statusFile.title = tab?.path ?? "";
     this.statusCount.textContent = `${countWords(content)} palabras · ${content.length} caracteres`;
-    this.statusEol.textContent = content.includes("\r\n") ? "CRLF" : "LF";
+    this.statusEncoding.textContent = tab
+      ? `${encodingDisplayName(tab.encoding)}${tab.bom ? " · BOM" : ""}`
+      : "UTF-8";
+    this.statusEol.textContent = tab ? tab.eol.toUpperCase() : "LF";
+    this.statusEncoding.disabled = !tab;
+    this.statusEol.disabled = !tab;
 
     if (!tab) {
       this.saveState.textContent = "—";
@@ -830,6 +964,310 @@ export class Shell {
   private afterMutation(): void {
     this.renderAll();
     this.scheduleSession();
+  }
+
+  private async watchPath(path: string): Promise<void> {
+    try {
+      await host.watchFile(path);
+    } catch {
+      // El watcher es best-effort; el archivo sigue editable.
+    }
+  }
+
+  private async rememberRecent(path: string): Promise<void> {
+    try {
+      await host.recentAdd(path);
+    } catch {
+      // La lista de recientes es best-effort.
+    }
+  }
+
+  private queueFileEvent(event: FileChangedEvent): void {
+    if (!this.workspace.tabs.some((tab) => tab.path === event.path)) {
+      return;
+    }
+
+    const existing = this.watchTimers.get(event.path);
+    if (existing !== undefined) {
+      clearTimeout(existing);
+    }
+
+    const timer = window.setTimeout(() => {
+      this.watchTimers.delete(event.path);
+      void this.handleFileEvent(event);
+    }, 250);
+
+    this.watchTimers.set(event.path, timer);
+  }
+
+  private async handleFileEvent(event: FileChangedEvent): Promise<void> {
+    const tab = this.workspace.tabs.find((item) => item.path === event.path);
+    if (!tab || this.conflictBusy || this.modalLayer.childElementCount > 0) {
+      return;
+    }
+
+    const localSave = this.localWrites.get(event.path);
+    if (localSave !== undefined && Date.now() - localSave < 1500) {
+      return;
+    }
+
+    if (event.kind === "removed") {
+      tab.missing = true;
+      tab.readOnly = true;
+      this.renderTabs();
+      this.updateStatus();
+      this.toast(`«${tab.name}» se eliminó en disco. Guardar lo recreará.`);
+      return;
+    }
+
+    let external: OpenedFile;
+    try {
+      external = await host.fileOpen(event.path);
+    } catch {
+      return;
+    }
+
+    if (external.fingerprint === tab.fingerprint) {
+      return;
+    }
+
+    if (!tab.dirty) {
+      this.applyExternal(tab, external);
+      this.toast("Archivo recargado por un cambio externo.");
+      return;
+    }
+
+    this.conflictBusy = true;
+    try {
+      const choice = await this.resolveConflict(tab, external);
+      if (choice === "reload") {
+        this.applyExternal(tab, external);
+      } else if (choice === "keep") {
+        tab.fingerprint = external.fingerprint;
+        tab.missing = false;
+      }
+    } finally {
+      this.conflictBusy = false;
+    }
+  }
+
+  private applyExternal(tab: Tab, external: OpenedFile): void {
+    const cursor = Math.min(tab.cursor, external.content.length);
+    this.workspace.replaceDocument(tab.id, external);
+    tab.cursor = cursor;
+
+    if (this.workspace.activeId === tab.id) {
+      this.renderEditor();
+    }
+    this.renderTabs();
+    this.updateStatus();
+    this.updateTitle();
+    this.scheduleSession();
+  }
+
+  private resolveConflict(tab: Tab, external: OpenedFile): Promise<ConflictChoice> {
+    return new Promise((resolve) => {
+      const finish = (choice: ConflictChoice): void => {
+        this.closeModal();
+        resolve(choice);
+      };
+
+      const body = document.createElement("div");
+      body.className = "conflict";
+
+      const note = document.createElement("p");
+      note.className = "modal-message";
+      note.textContent =
+        "El archivo cambió en disco. Elige qué versión conservar; «Mantener» sobrescribirá al guardar.";
+
+      const diff = document.createElement("pre");
+      diff.className = "diff";
+      diff.textContent = renderDiff(tab.content, external.content);
+
+      body.append(note, diff);
+
+      this.openModal({
+        title: `«${tab.name}» cambió en disco`,
+        body,
+        onEscape: () => finish("cancel"),
+        actions: [
+          { label: "Recargar del disco", primary: true, onClick: () => finish("reload") },
+          { label: "Mantener mi versión", onClick: () => finish("keep") },
+          { label: "Cancelar", onClick: () => finish("cancel") },
+        ],
+      });
+    });
+  }
+
+  private showFileFormat(): void {
+    const tab = this.workspace.active;
+    if (!tab) {
+      return;
+    }
+
+    const form = document.createElement("form");
+    form.className = "settings-form";
+    const options = ENCODING_OPTIONS.map(
+      (option) => `<option value="${option.label}">${option.name}</option>`,
+    ).join("");
+
+    form.innerHTML = `
+      <label class="field">
+        <span>Codificación</span>
+        <select id="format-encoding">${options}</select>
+      </label>
+      <label class="field field-inline">
+        <input id="format-bom" type="checkbox" />
+        <span>Añadir BOM (solo UTF-8)</span>
+      </label>
+      <label class="field">
+        <span>Fin de línea</span>
+        <select id="format-eol">
+          <option value="lf">LF (Unix)</option>
+          <option value="crlf">CRLF (Windows)</option>
+          <option value="cr">CR (clásico)</option>
+        </select>
+      </label>
+      <p class="field-hint">La codificación y el BOM se aplican al guardar. El fin de línea se convierte ahora en el editor.</p>
+    `;
+
+    const encoding = form.querySelector<HTMLSelectElement>("#format-encoding");
+    const bom = form.querySelector<HTMLInputElement>("#format-bom");
+    const eol = form.querySelector<HTMLSelectElement>("#format-eol");
+
+    if (encoding) {
+      if (!ENCODING_OPTIONS.some((option) => option.label === tab.encoding)) {
+        const extra = document.createElement("option");
+        extra.value = tab.encoding;
+        extra.textContent = encodingDisplayName(tab.encoding);
+        encoding.append(extra);
+      }
+      encoding.value = tab.encoding;
+    }
+    if (bom) {
+      bom.checked = tab.bom;
+      bom.disabled = !tab.encoding.startsWith("utf-8");
+    }
+    if (eol) {
+      eol.value = tab.eol;
+    }
+
+    encoding?.addEventListener("change", () => {
+      if (!encoding || !bom) {
+        return;
+      }
+      const isUtf8 = encoding.value.startsWith("utf-8");
+      bom.disabled = !isUtf8;
+      if (!isUtf8) {
+        bom.checked = false;
+      }
+    });
+
+    this.openModal({
+      title: "Codificación y fin de línea",
+      body: form,
+      onEscape: () => this.closeModal(),
+      actions: [
+        {
+          label: "Aplicar",
+          primary: true,
+          onClick: () => {
+            const nextEncoding = encoding?.value ?? tab.encoding;
+            const nextBom = nextEncoding.startsWith("utf-8") ? (bom?.checked ?? false) : false;
+            const nextEol = (eol?.value as Eol | undefined) ?? tab.eol;
+
+            if (nextEol !== tab.eol) {
+              tab.content = convertEol(tab.content, nextEol);
+              tab.cursor = Math.min(tab.cursor, tab.content.length);
+              if (this.workspace.activeId === tab.id) {
+                this.editor.value = tab.content;
+                this.editor.setSelectionRange(tab.cursor, tab.cursor);
+              }
+            }
+
+            tab.encoding = nextEncoding;
+            tab.bom = nextBom;
+            tab.eol = nextEol;
+            tab.dirty = true;
+
+            this.closeModal();
+            this.renderTabs();
+            this.updateStatus();
+            this.updateTitle();
+            this.scheduleSession();
+            this.toast("Formato actualizado. Guarda para aplicar la codificación.");
+          },
+        },
+        { label: "Cancelar", onClick: () => this.closeModal() },
+      ],
+    });
+  }
+
+  private async showRecent(): Promise<void> {
+    let entries: RecentEntry[];
+    try {
+      entries = await host.recentList();
+    } catch (error) {
+      this.toast(errorMessage(error));
+      return;
+    }
+
+    const body = document.createElement("div");
+    body.className = "recent-list";
+
+    if (entries.length === 0) {
+      const empty = document.createElement("p");
+      empty.className = "modal-message";
+      empty.textContent = "Todavía no hay archivos recientes.";
+      body.append(empty);
+    }
+
+    for (const entry of entries) {
+      const item = document.createElement("button");
+      item.type = "button";
+      item.className = "recent-item";
+      item.disabled = !entry.exists;
+
+      const name = document.createElement("span");
+      name.className = "recent-name";
+      name.textContent = entry.name;
+
+      const path = document.createElement("span");
+      path.className = "recent-path";
+      path.textContent = entry.path;
+
+      item.append(name, path);
+      item.addEventListener("click", () => {
+        this.closeModal();
+        void this.openPath(entry.path);
+      });
+      body.append(item);
+    }
+
+    const actions: ModalAction[] = [];
+    if (entries.length > 0) {
+      actions.push({
+        label: "Limpiar lista",
+        danger: true,
+        onClick: () => {
+          void host
+            .recentClear()
+            .then(() => {
+              this.closeModal();
+              this.toast("Lista de recientes borrada.");
+            })
+            .catch((error: unknown) => this.toast(errorMessage(error)));
+        },
+      });
+    }
+    actions.push({ label: "Cerrar", primary: true, onClick: () => this.closeModal() });
+
+    this.openModal({
+      title: "Abrir reciente",
+      body,
+      onEscape: () => this.closeModal(),
+      actions,
+    });
   }
 
   private toast(message: string): void {

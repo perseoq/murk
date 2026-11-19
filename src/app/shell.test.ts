@@ -9,6 +9,12 @@ const mocks = vi.hoisted(() => ({
   fileSave: vi.fn(),
   openFileDialog: vi.fn(),
   saveFileDialog: vi.fn(),
+  watchFile: vi.fn(),
+  unwatchFile: vi.fn(),
+  listenFileChanged: vi.fn(),
+  recentList: vi.fn(),
+  recentAdd: vi.fn(),
+  recentClear: vi.fn(),
   settingsLoad: vi.fn(),
   settingsSave: vi.fn(),
   sessionLoad: vi.fn(),
@@ -28,6 +34,12 @@ vi.mock("../host", () => ({
     fileSave: mocks.fileSave,
     openFileDialog: mocks.openFileDialog,
     saveFileDialog: mocks.saveFileDialog,
+    watchFile: mocks.watchFile,
+    unwatchFile: mocks.unwatchFile,
+    listenFileChanged: mocks.listenFileChanged,
+    recentList: mocks.recentList,
+    recentAdd: mocks.recentAdd,
+    recentClear: mocks.recentClear,
     settingsLoad: mocks.settingsLoad,
     settingsSave: mocks.settingsSave,
     sessionLoad: mocks.sessionLoad,
@@ -59,6 +71,12 @@ describe("Shell · flujo abrir → editar → guardar", () => {
     mocks.sessionLoad.mockResolvedValue(null);
     mocks.settingsSave.mockResolvedValue(undefined);
     mocks.sessionSave.mockResolvedValue(undefined);
+    mocks.watchFile.mockResolvedValue(undefined);
+    mocks.unwatchFile.mockResolvedValue(undefined);
+    mocks.listenFileChanged.mockResolvedValue(() => undefined);
+    mocks.recentList.mockResolvedValue([]);
+    mocks.recentAdd.mockResolvedValue([]);
+    mocks.recentClear.mockResolvedValue(undefined);
     mocks.version.mockResolvedValue("0.0.0");
     mocks.geometry.mockResolvedValue({ width: 1200, height: 800, maximized: false });
     mocks.restore.mockResolvedValue(undefined);
@@ -87,12 +105,20 @@ describe("Shell · flujo abrir → editar → guardar", () => {
       size: 6,
       modifiedMs: 1,
       readOnly: false,
+      encoding: "utf-8",
+      eol: "lf",
+      bom: false,
+      fingerprint: "fp-1",
     });
     mocks.fileSave.mockResolvedValue({
       path: "/tmp/nota.md",
       name: "nota.md",
       size: 12,
       modifiedMs: 2,
+      encoding: "utf-8",
+      eol: "lf",
+      bom: false,
+      fingerprint: "fp-2",
     });
 
     const root = document.querySelector<HTMLElement>("#app");
@@ -119,7 +145,17 @@ describe("Shell · flujo abrir → editar → guardar", () => {
 
     window.dispatchEvent(new KeyboardEvent("keydown", { key: "s", ctrlKey: true }));
     await vi.waitFor(() =>
-      expect(mocks.fileSave).toHaveBeenCalledWith("/tmp/nota.md", "# Hola mundo"),
+      expect(mocks.fileSave).toHaveBeenCalledWith(
+        "/tmp/nota.md",
+        "# Hola mundo",
+        expect.objectContaining({
+          encoding: "utf-8",
+          eol: "lf",
+          bom: false,
+          convertEol: false,
+          expectedFingerprint: "fp-1",
+        }),
+      ),
     );
     await vi.waitFor(() => expect(saveState.textContent).toBe("Guardado"));
 

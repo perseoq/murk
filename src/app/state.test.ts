@@ -14,11 +14,24 @@ function openedFile(name: string, path: string, content = ""): OpenedFile {
     size: content.length,
     modifiedMs: 1,
     readOnly: false,
+    encoding: "utf-8",
+    eol: "lf",
+    bom: false,
+    fingerprint: `fp-${path}`,
   };
 }
 
 function savedFile(name: string, path: string): SavedFile {
-  return { path, name, size: 1, modifiedMs: 2 };
+  return {
+    path,
+    name,
+    size: 1,
+    modifiedMs: 2,
+    encoding: "utf-8",
+    eol: "lf",
+    bom: false,
+    fingerprint: `fp-${path}`,
+  };
 }
 
 describe("Workspace", () => {
@@ -130,6 +143,20 @@ describe("Workspace", () => {
     expect(workspace.hasDirty()).toBe(false);
     workspace.updateContent(tab.id, "x");
     expect(workspace.hasDirty()).toBe(true);
+  });
+
+  it("reemplaza el contenido y el formato desde disco", () => {
+    const workspace = new Workspace();
+    const tab = workspace.openDocument(openedFile("a.md", "/tmp/a.md", "viejo"));
+
+    workspace.updateContent(tab.id, "local");
+    expect(tab.dirty).toBe(true);
+
+    workspace.replaceDocument(tab.id, openedFile("a.md", "/tmp/a.md", "externo"));
+
+    expect(tab.content).toBe("externo");
+    expect(tab.dirty).toBe(false);
+    expect(tab.fingerprint).toBe("fp-/tmp/a.md");
   });
 });
 

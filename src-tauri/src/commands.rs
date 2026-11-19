@@ -2,8 +2,7 @@
 // Copyright (C) 2026 Murk contributors
 
 use std::fs;
-use std::path::PathBuf;
-use std::time::UNIX_EPOCH;
+use std::path::{Path, PathBuf};
 
 use serde::{Deserialize, Serialize};
 use tauri::AppHandle;
@@ -20,6 +19,10 @@ pub struct OpenedFile {
     pub size: u64,
     pub modified_ms: u64,
     pub read_only: bool,
+    pub encoding: String,
+    pub eol: String,
+    pub bom: bool,
+    pub fingerprint: String,
 }
 
 #[derive(Debug, Serialize)]
@@ -29,6 +32,41 @@ pub struct SavedFile {
     pub name: String,
     pub size: u64,
     pub modified_ms: u64,
+    pub encoding: String,
+    pub eol: String,
+    pub bom: bool,
+    pub fingerprint: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase", default)]
+pub struct SaveOptions {
+    pub encoding: String,
+    pub bom: bool,
+    pub eol: String,
+    pub convert_eol: bool,
+    pub expected_fingerprint: Option<String>,
+}
+
+impl Default for SaveOptions {
+    fn default() -> Self {
+        Self {
+            encoding: "utf-8".to_string(),
+            bom: false,
+            eol: "lf".to_string(),
+            convert_eol: false,
+            expected_fingerprint: None,
+        }
+    }
+}
+
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct RecentEntry {
+    pub path: String,
+    pub name: String,
+    pub modified_ms: u64,
+    pub exists: bool,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
@@ -52,7 +90,6 @@ impl Default for Settings {
 }
 
 impl Settings {
-    /// Normaliza valores fuera de rango para que una configuración corrupta no rompa la UI.
     pub fn normalized(mut self) -> Self {
         if !matches!(self.theme.as_str(), "light" | "dark" | "system") {
             self.theme = "system".to_string();
@@ -110,49 +147,88 @@ impl Session {
     }
 }
 
-fn modified_ms(metadata: &fs::Metadata) -> u64 {
-    metadata
-        .modified()
-        .ok()
-        .and_then(|time| time.duration_since(UNIX_EPOCH).ok())
-        .map(|duration| duration.as_millis() as u64)
-        .unwrap_or(0)
-}
-
-fn file_name(path: &std::path::Path) -> String {
+fn file_name(path: &Path) -> String {
     path.file_name()
         .and_then(|name| name.to_str())
         .unwrap_or("documento.md")
         .to_string()
 }
 
+fn recent_file(app: &AppHandle) -> Result<PathBuf, AppError> {
+    Ok(store::config_dir(app)?.join("recent.json"))
+}
+
+fn build_recent(paths: Vec<String>) -> Vec<RecentEntry> {
+    paths
+        .into_iter()
+        .map(|path| {
+            let file = PathBuf::from(&path);
+            let metadata = fs::metadata(&file).ok();
+            RecentEntry {
+                name: file_name(&file),
+                modified_ms: metadata.as_ref().map(store::modified_ms).unwrap_or(0),
+                exists: metadata.is_some(),
+                path,
+            }
+        })
+        .collect()
+}
+
 #[tauri::command]
 pub fn file_open(path: String) -> Result<OpenedFile, AppError> {
     let path = PathBuf::from(path);
-    let (content, size, modified_ms) = store::read_text(&path)?;
+    let (bytes, size, modified_ms) = store::read_bytes(&path)?;
+    let decoded = store::decode(&bytes)?;
     let metadata = fs::metadata(&path)?;
 
     Ok(OpenedFile {
         name: file_name(&path),
         path: path.to_string_lossy().into_owned(),
-        content,
+        content: decoded.content,
         size,
         modified_ms,
-        read_only: metadata.permissions().readonly(),
+        read_only: metadata.permissions().readonly() || size > store::MAX_EDITABLE_SIZE,
+        encoding: decoded.encoding,
+        eol: decoded.eol,
+        bom: decoded.bom,
+        fingerprint: decoded.fingerprint,
     })
 }
 
 #[tauri::command]
-pub fn file_save(path: String, content: String) -> Result<SavedFile, AppError> {
+pub fn file_save(
+    path: String,
+    content: String,
+    options: SaveOptions,
+) -> Result<SavedFile, AppError> {
     let path = PathBuf::from(path);
-    let size = store::write_text(&path, &content)?;
+
+    store::check_fingerprint(&path, options.expected_fingerprint.as_deref())?;
+
+    let text = if options.convert_eol {
+        store::convert_eol(&content, &options.eol)
+    } else {
+        content
+    };
+    let encoded = store::encode(&text, &options.encoding, options.bom)?;
+    store::write_bytes_atomic(&path, &encoded.bytes)?;
+
     let metadata = fs::metadata(&path)?;
+    let eol = if options.convert_eol {
+        options.eol.clone()
+    } else {
+        store::detect_eol(&text).to_string()
+    };
 
     Ok(SavedFile {
         name: file_name(&path),
         path: path.to_string_lossy().into_owned(),
-        size,
-        modified_ms: modified_ms(&metadata),
+        size: encoded.bytes.len() as u64,
+        modified_ms: store::modified_ms(&metadata),
+        encoding: encoded.encoding,
+        eol,
+        bom: encoded.bom,
+        fingerprint: store::fingerprint(&encoded.bytes),
     })
 }
 
@@ -180,6 +256,31 @@ pub fn session_load(app: AppHandle) -> Result<Option<Session>, AppError> {
 pub fn session_save(app: AppHandle, session: Session) -> Result<(), AppError> {
     let path = store::config_dir(&app)?.join("session.json");
     store::write_json_atomic(&path, &session.normalized())
+}
+
+#[tauri::command]
+pub fn recent_list(app: AppHandle) -> Result<Vec<RecentEntry>, AppError> {
+    let paths = store::read_json::<Vec<String>>(&recent_file(&app)?)?.unwrap_or_default();
+    Ok(build_recent(paths))
+}
+
+#[tauri::command]
+pub fn recent_add(app: AppHandle, path: String) -> Result<Vec<RecentEntry>, AppError> {
+    if !Path::new(&path).is_absolute() {
+        return Err(AppError::new("invalid_path", "La ruta debe ser absoluta"));
+    }
+
+    let file = recent_file(&app)?;
+    let list = store::read_json::<Vec<String>>(&file)?.unwrap_or_default();
+    let list = store::push_recent(list, path);
+    store::write_json_atomic(&file, &list)?;
+
+    Ok(build_recent(list))
+}
+
+#[tauri::command]
+pub fn recent_clear(app: AppHandle) -> Result<(), AppError> {
+    store::write_json_atomic(&recent_file(&app)?, &Vec::<String>::new())
 }
 
 #[cfg(test)]
@@ -218,5 +319,14 @@ mod tests {
     fn session_deserializes_missing_fields() {
         let session: Session = serde_json::from_str("{}").expect("sesión mínima");
         assert_eq!(session, Session::default());
+    }
+
+    #[test]
+    fn save_options_have_safe_defaults() {
+        let options: SaveOptions = serde_json::from_str("{}").expect("opciones mínimas");
+        assert_eq!(options.encoding, "utf-8");
+        assert!(!options.bom);
+        assert!(!options.convert_eol);
+        assert!(options.expected_fingerprint.is_none());
     }
 }

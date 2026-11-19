@@ -4,6 +4,7 @@
 export type ActionId =
   | "file.new"
   | "file.open"
+  | "file.recent"
   | "file.save"
   | "file.saveAs"
   | "file.close"
@@ -41,6 +42,7 @@ export const MENUS: MenuDef[] = [
     items: [
       { label: "Nuevo", action: "file.new", shortcut: "Ctrl+N" },
       { label: "Abrir…", action: "file.open", shortcut: "Ctrl+O" },
+      { label: "Abrir reciente…", action: "file.recent" },
       { label: "Guardar", action: "file.save", shortcut: "Ctrl+S" },
       { label: "Guardar como…", action: "file.saveAs", shortcut: "Ctrl+Shift+S" },
       { label: "Cerrar pestaña", action: "file.close", shortcut: "Ctrl+W" },

@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 // Copyright (C) 2026 Murk contributors
 
-import type { OpenedFile, SavedFile, Session } from "../host";
+import type { Eol, OpenedFile, SavedFile, Session } from "../host";
 
 export interface Tab {
   id: string;
@@ -12,6 +12,11 @@ export interface Tab {
   cursor: number;
   scroll: number;
   readOnly: boolean;
+  encoding: string;
+  eol: Eol;
+  bom: boolean;
+  fingerprint: string;
+  missing: boolean;
 }
 
 export function countWords(text: string): number {
@@ -59,6 +64,11 @@ export class Workspace {
       cursor: 0,
       scroll: 0,
       readOnly: false,
+      encoding: "utf-8",
+      eol: "lf",
+      bom: false,
+      fingerprint: "",
+      missing: false,
     };
     this.tabs.push(tab);
     this.activeId = tab.id;
@@ -87,6 +97,11 @@ export class Workspace {
           cursor: 0,
           scroll: 0,
           readOnly: false,
+          encoding: "utf-8",
+          eol: "lf",
+          bom: false,
+          fingerprint: "",
+          missing: false,
         };
 
     tab.path = file.path;
@@ -94,6 +109,11 @@ export class Workspace {
     tab.content = file.content;
     tab.dirty = false;
     tab.readOnly = file.readOnly;
+    tab.encoding = file.encoding;
+    tab.eol = file.eol;
+    tab.bom = file.bom;
+    tab.fingerprint = file.fingerprint;
+    tab.missing = false;
     tab.cursor = 0;
     tab.scroll = 0;
 
@@ -137,6 +157,27 @@ export class Workspace {
     tab.name = saved.name;
     tab.dirty = false;
     tab.readOnly = false;
+    tab.encoding = saved.encoding;
+    tab.eol = saved.eol;
+    tab.bom = saved.bom;
+    tab.fingerprint = saved.fingerprint;
+    tab.missing = false;
+  }
+
+  replaceDocument(id: string, file: OpenedFile): void {
+    const tab = this.tabs.find((item) => item.id === id);
+    if (!tab) {
+      return;
+    }
+
+    tab.content = file.content;
+    tab.dirty = false;
+    tab.readOnly = file.readOnly;
+    tab.encoding = file.encoding;
+    tab.eol = file.eol;
+    tab.bom = file.bom;
+    tab.fingerprint = file.fingerprint;
+    tab.missing = false;
   }
 
   closeTab(id: string): void {

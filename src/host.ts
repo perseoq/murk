@@ -3,10 +3,13 @@
 
 import { getVersion } from "@tauri-apps/api/app";
 import { invoke } from "@tauri-apps/api/core";
+import { listen, type UnlistenFn } from "@tauri-apps/api/event";
 import { PhysicalSize, getCurrentWindow, type CloseRequestedEvent } from "@tauri-apps/api/window";
 import { open as openDialog, save as saveDialog } from "@tauri-apps/plugin-dialog";
 
 export type ThemeMode = "light" | "dark" | "system";
+export type Eol = "lf" | "crlf" | "cr";
+export type FileChangeKind = "created" | "modified" | "removed";
 
 export interface OpenedFile {
   path: string;
@@ -15,6 +18,10 @@ export interface OpenedFile {
   size: number;
   modifiedMs: number;
   readOnly: boolean;
+  encoding: string;
+  eol: Eol;
+  bom: boolean;
+  fingerprint: string;
 }
 
 export interface SavedFile {
@@ -22,6 +29,32 @@ export interface SavedFile {
   name: string;
   size: number;
   modifiedMs: number;
+  encoding: string;
+  eol: Eol;
+  bom: boolean;
+  fingerprint: string;
+}
+
+export interface SaveOptions {
+  encoding: string;
+  bom: boolean;
+  eol: Eol;
+  convertEol: boolean;
+  expectedFingerprint: string | null;
+}
+
+export interface RecentEntry {
+  path: string;
+  name: string;
+  modifiedMs: number;
+  exists: boolean;
+}
+
+export interface FileChangedEvent {
+  path: string;
+  kind: FileChangeKind;
+  modifiedMs: number;
+  size: number;
 }
 
 export interface Settings {
@@ -136,8 +169,47 @@ export const host = {
     return call<OpenedFile>("file_open", { path });
   },
 
-  fileSave(path: string, content: string): Promise<SavedFile> {
-    return call<SavedFile>("file_save", { path, content });
+  fileSave(path: string, content: string, options: SaveOptions): Promise<SavedFile> {
+    return call<SavedFile>("file_save", { path, content, options });
+  },
+
+  async watchFile(path: string): Promise<void> {
+    await call<void>("watch_file", { path });
+  },
+
+  async unwatchFile(path: string): Promise<void> {
+    if (!isDesktop()) {
+      return;
+    }
+    await call<void>("unwatch_file", { path });
+  },
+
+  async listenFileChanged(handler: (event: FileChangedEvent) => void): Promise<UnlistenFn> {
+    if (!isDesktop()) {
+      return () => undefined;
+    }
+    return listen<FileChangedEvent>("file:changed", (event) => handler(event.payload));
+  },
+
+  async recentList(): Promise<RecentEntry[]> {
+    if (!isDesktop()) {
+      return [];
+    }
+    return call<RecentEntry[]>("recent_list");
+  },
+
+  async recentAdd(path: string): Promise<RecentEntry[]> {
+    if (!isDesktop()) {
+      return [];
+    }
+    return call<RecentEntry[]>("recent_add", { path });
+  },
+
+  async recentClear(): Promise<void> {
+    if (!isDesktop()) {
+      return;
+    }
+    await call<void>("recent_clear");
   },
 
   async settingsLoad(): Promise<Settings | null> {
