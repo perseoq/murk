@@ -18,9 +18,10 @@ Actualizado: 2026-11-19.
 | **A7** Workspace UI | ✅ completada | commit `31692dc`; CI run `44597306324` (61 tests, Rust verde) |
 | **A8** Recuperación | ✅ completada | commits `430fadc`+`665b545`; CI run `44605471113` (62 tests, Rust verde) |
 | **A9** Exportación | ✅ completada | commit `3267bb6`; CI run `44610576993` (62 tests, 33 Rust) |
-| **A10–A12** | ⬜ pendientes | — |
+| **A10** Integración | ✅ completada | commit `f081d1f`; CI run `44614007667` (62 tests, 36 Rust) |
+| **A11–A12** | ⬜ pendientes | — |
 
-**Fases restantes: 3** (A10 a A12).
+**Fases restantes: 2** (A11 y A12).
 
 ## Track 0 — Fundación
 
