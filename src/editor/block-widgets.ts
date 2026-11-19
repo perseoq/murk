@@ -1,0 +1,147 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
+// Copyright (C) 2026 Murk contributors
+
+import { syntaxTree } from "@codemirror/language";
+import { RangeSet, StateField, type EditorState, type Range } from "@codemirror/state";
+import { Decoration, EditorView, type DecorationSet } from "@codemirror/view";
+import type { SyntaxNode } from "@lezer/common";
+
+import { refreshEffect } from "./effects";
+import { MathWidget } from "./widgets/math";
+import { MermaidWidget, isDarkTheme } from "./widgets/mermaid";
+
+interface BlockWidgetResult {
+  decorations: DecorationSet;
+  atomic: RangeSet<Decoration>;
+}
+
+const CODE_NODE_NAMES = new Set(["FencedCode", "CodeBlock", "InlineCode"]);
+
+function insideCode(state: EditorState, position: number): boolean {
+  let node: SyntaxNode | null = syntaxTree(state).resolveInner(position, 1);
+  while (node) {
+    if (CODE_NODE_NAMES.has(node.name)) {
+      return true;
+    }
+    node = node.parent;
+  }
+  return false;
+}
+
+function isNestedBlock(state: EditorState, position: number): boolean {
+  let node: SyntaxNode | null = syntaxTree(state).resolveInner(position, 1);
+  while (node) {
+    if (node.name === "Blockquote" || node.name === "ListItem") {
+      return true;
+    }
+    node = node.parent;
+  }
+  return false;
+}
+
+export function buildBlockDecorations(state: EditorState): BlockWidgetResult {
+  const doc = state.doc;
+  const ranges: Range<Decoration>[] = [];
+  const atomic: Range<Decoration>[] = [];
+
+  const touches = (from: number, to: number): boolean =>
+    state.selection.ranges.some((range) => range.from <= to && range.to >= from);
+
+  syntaxTree(state).iterate({
+    enter: (node) => {
+      if (node.name !== "FencedCode") {
+        return;
+      }
+
+      const info = node.node.getChild("CodeInfo");
+      if (!info) {
+        return;
+      }
+      const language = doc.sliceString(info.from, info.to).trim().split(/\s+/)[0]?.toLowerCase();
+      if (language !== "mermaid") {
+        return;
+      }
+      if (touches(node.from, node.to)) {
+        return;
+      }
+      if (isNestedBlock(state, node.from)) {
+        return;
+      }
+
+      const code = node.node.getChild("CodeText");
+      const source = code ? doc.sliceString(code.from, code.to) : "";
+
+      ranges.push(
+        Decoration.replace({
+          block: true,
+          widget: new MermaidWidget(source, isDarkTheme()),
+        }).range(node.from, node.to),
+      );
+      atomic.push(Decoration.replace({}).range(node.from, node.to));
+    },
+  });
+
+  for (let index = 1; index <= doc.lines; index += 1) {
+    const opening = doc.line(index);
+    if (opening.text.trim() !== "$$" || insideCode(state, opening.from)) {
+      continue;
+    }
+    if (isNestedBlock(state, opening.from)) {
+      continue;
+    }
+
+    let closingIndex = 0;
+    for (let next = index + 1; next <= doc.lines; next += 1) {
+      if (doc.line(next).text.trim() === "$$") {
+        closingIndex = next;
+        break;
+      }
+    }
+    if (!closingIndex) {
+      continue;
+    }
+
+    const closing = doc.line(closingIndex);
+    if (!touches(opening.from, closing.to)) {
+      const content =
+        closingIndex > index + 1
+          ? doc.sliceString(doc.line(index + 1).from, doc.line(closingIndex - 1).to)
+          : "";
+
+      ranges.push(
+        Decoration.replace({
+          block: true,
+          widget: new MathWidget(content, true),
+        }).range(opening.from, closing.to),
+      );
+      atomic.push(Decoration.replace({}).range(opening.from, closing.to));
+    }
+
+    index = closingIndex;
+  }
+
+  return {
+    decorations: Decoration.set(ranges, true),
+    atomic: RangeSet.of(atomic, true),
+  };
+}
+
+export const blockWidgetsField = StateField.define<BlockWidgetResult>({
+  create(state) {
+    return buildBlockDecorations(state);
+  },
+  update(value, transaction) {
+    if (
+      transaction.docChanged ||
+      transaction.selection ||
+      transaction.effects.some((effect) => effect.is(refreshEffect))
+    ) {
+      return buildBlockDecorations(transaction.state);
+    }
+    return value;
+  },
+  provide: (field) => [
+    EditorView.decorations.from(field, (value) => value.decorations),
+    EditorView.atomicRanges.of((view) => view.state.field(field).atomic),
+  ],
+});

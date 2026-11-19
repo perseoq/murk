@@ -348,6 +348,93 @@ body {
   line-height: 0;
 }
 
+/* Widgets A5 */
+.cm-md-image {
+  display: inline-flex;
+  max-width: 100%;
+  vertical-align: middle;
+}
+
+.cm-md-image img {
+  display: block;
+  max-width: 100%;
+  max-height: 60vh;
+  border-radius: 6px;
+}
+
+.cm-md-image-loading,
+.cm-md-image-missing {
+  padding: 4px 8px;
+  border: 1px dashed var(--murk-border);
+  border-radius: 6px;
+  color: var(--murk-muted);
+  font-size: 0.9em;
+}
+
+.cm-md-math-inline {
+  padding: 0 2px;
+}
+
+.cm-md-math-block {
+  display: inline-block;
+  width: 100%;
+  margin: 0.6em 0;
+  overflow-x: auto;
+  text-align: center;
+}
+
+.cm-md-math-error {
+  color: var(--murk-danger);
+  font-family: var(--murk-mono);
+}
+
+.cm-md-mermaid {
+  display: block;
+  margin: 0.8em 0;
+  padding: 12px;
+  overflow: auto;
+  border: 1px solid var(--murk-border);
+  border-radius: 8px;
+  background: var(--murk-bg);
+  text-align: center;
+}
+
+.cm-md-mermaid svg {
+  max-width: 100%;
+  height: auto;
+}
+
+.cm-md-mermaid-error {
+  color: var(--murk-danger);
+  font-size: 12px;
+}
+
+.cm-md-mermaid-source {
+  overflow: auto;
+  font-family: var(--murk-mono);
+  font-size: 12px;
+  text-align: left;
+  white-space: pre-wrap;
+}
+
+.cm-md-task {
+  display: inline-flex;
+  align-items: center;
+  margin-right: 6px;
+  vertical-align: middle;
+}
+
+.cm-md-task input {
+  width: 15px;
+  height: 15px;
+  accent-color: var(--murk-accent);
+  cursor: pointer;
+}
+
+.cm-md-task input:disabled {
+  cursor: default;
+}
+
 .statusbar {
   display: flex;
   align-items: center;

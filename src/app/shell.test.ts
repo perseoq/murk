@@ -68,6 +68,7 @@ vi.mock("../editor/editor", () => {
 
     setReadOnly(): void {}
     setTabSize(): void {}
+    refresh(): void {}
     scrollToRatio(): void {}
     invalidate(): void {}
     forget(): void {}

@@ -13,6 +13,7 @@ import type {
 } from "../host";
 import { ENCODING_OPTIONS, convertEol, encodingDisplayName } from "./encoding";
 import { MurkEditor } from "../editor/editor";
+import { setImageDocumentPath, clearImageCache } from "../editor/widgets/image";
 import { MENUS, type ActionId, type MenuDef } from "./menus";
 import { DEFAULT_SETTINGS, applySettings, normalizeSettings } from "./settings";
 import { Workspace, countWords, displayPath, type Tab } from "./state";
@@ -107,6 +108,12 @@ export class Shell {
   private readonly localWrites = new Map<string, number>();
   private readonly watchTimers = new Map<string, number>();
   private conflictBusy = false;
+  private themeMedia: MediaQueryList | null = null;
+  private readonly handleSystemTheme = (): void => {
+    if (this.settings.theme === "system") {
+      this.editor.refresh();
+    }
+  };
 
   constructor(root: HTMLElement) {
     this.root = root;
@@ -147,6 +154,8 @@ export class Shell {
     this.watchTimers.clear();
     this.unlistenFileChanged?.();
     this.unlistenFileChanged = null;
+    this.themeMedia?.removeEventListener("change", this.handleSystemTheme);
+    this.themeMedia = null;
     for (const tab of this.workspace.tabs) {
       if (tab.path) {
         void host.unwatchFile(tab.path).catch(() => undefined);
@@ -488,6 +497,11 @@ export class Shell {
       this.closeMenus();
     });
 
+    if (typeof window.matchMedia === "function") {
+      this.themeMedia = window.matchMedia("(prefers-color-scheme: dark)");
+      this.themeMedia.addEventListener("change", this.handleSystemTheme);
+    }
+
     window.addEventListener("keydown", (event) => {
       if (this.modalLayer.childElementCount > 0) {
         return;
@@ -624,6 +638,8 @@ export class Shell {
       this.workspace.markSaved(tab.id, saved);
       if (this.workspace.activeId === tab.id) {
         this.editor.setReadOnly(tab.readOnly);
+        setImageDocumentPath(saved.path);
+        this.editor.refresh();
       }
       this.renderTabs();
       this.updateStatus();
@@ -836,6 +852,7 @@ export class Shell {
   private async setTheme(theme: Settings["theme"]): Promise<void> {
     this.settings = { ...this.settings, theme };
     applySettings(this.settings);
+    this.editor.refresh();
     try {
       await host.settingsSave(this.settings);
     } catch (error) {
@@ -899,6 +916,7 @@ export class Shell {
       return;
     }
 
+    setImageDocumentPath(tab.path);
     this.editor.activate(tab.id, tab.content, tab.cursor, tab.readOnly);
     this.editor.scrollToRatio(tab.scroll);
   }
@@ -1080,6 +1098,7 @@ export class Shell {
     this.workspace.replaceDocument(tab.id, external);
     tab.cursor = cursor;
     this.editor.invalidate(tab.id);
+    clearImageCache();
 
     if (this.workspace.activeId === tab.id) {
       this.renderEditor();
@@ -1472,6 +1491,7 @@ export class Shell {
             this.settings = next;
             applySettings(next);
             this.editor.setTabSize(next.tabSize);
+            this.editor.refresh();
             this.closeModal();
             this.toast("Preferencias guardadas");
             void host.settingsSave(next).catch((error: unknown) => {

@@ -15,6 +15,7 @@ pub fn run() {
         .invoke_handler(tauri::generate_handler![
             commands::file_open,
             commands::file_save,
+            commands::image_load,
             commands::settings_load,
             commands::settings_save,
             commands::session_load,

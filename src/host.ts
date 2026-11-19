@@ -57,6 +57,11 @@ export interface FileChangedEvent {
   size: number;
 }
 
+export interface ImageData {
+  mime: string;
+  dataUrl: string;
+}
+
 export interface Settings {
   theme: ThemeMode;
   fontFamily: string;
@@ -171,6 +176,10 @@ export const host = {
 
   fileSave(path: string, content: string, options: SaveOptions): Promise<SavedFile> {
     return call<SavedFile>("file_save", { path, content, options });
+  },
+
+  imageLoad(path: string): Promise<ImageData> {
+    return call<ImageData>("image_load", { path });
   },
 
   async watchFile(path: string): Promise<void> {

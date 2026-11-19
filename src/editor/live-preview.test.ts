@@ -137,4 +137,32 @@ describe("live preview (A4)", () => {
     expect(result.classes).toContain("cm-md-quote");
     expect(result.classes).toContain("cm-md-h1");
   });
+
+  it("reemplaza imágenes por widgets y revela la sintaxis al entrar", () => {
+    const outside = collect("![alt](img/foto.png)\n\ntexto");
+    expect(outside.widgets).toBe(1);
+    expect(outside.atomic).toHaveLength(1);
+
+    const inside = collect("![alt](img/foto.png)\n\ntexto", 3);
+    expect(inside.widgets).toBe(0);
+  });
+
+  it("renderiza matemáticas en línea y en bloque de una línea", () => {
+    const inline = collect("$E=mc^2$\n\ntexto");
+    expect(inline.widgets).toBe(1);
+    expect(inline.atomic).toHaveLength(1);
+
+    const block = collect("$$x^2$$\n\ntexto");
+    expect(block.widgets).toBe(1);
+
+    const escaped = collect("cuesta \\$5\n\ntexto");
+    expect(escaped.widgets).toBe(0);
+  });
+
+  it("convierte las marcas de tarea en checkboxes", () => {
+    const result = collect("- [ ] tarea\n- [x] hecha\n\ntexto");
+
+    expect(result.widgets).toBe(4); // dos viñetas + dos checkboxes
+    expect(result.atomic).toHaveLength(4);
+  });
 });

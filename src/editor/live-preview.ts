@@ -2,7 +2,7 @@
 // Copyright (C) 2026 Murk contributors
 
 import { syntaxTree } from "@codemirror/language";
-import { RangeSet, type EditorState, type Range } from "@codemirror/state";
+import { EditorState, RangeSet, type Range } from "@codemirror/state";
 import {
   Decoration,
   EditorView,
@@ -11,6 +11,12 @@ import {
   type DecorationSet,
   type ViewUpdate,
 } from "@codemirror/view";
+import type { SyntaxNode } from "@lezer/common";
+
+import { refreshEffect } from "./effects";
+import { CheckboxWidget } from "./widgets/checkbox";
+import { ImageWidget, resolveImagePath } from "./widgets/image";
+import { MathWidget } from "./widgets/math";
 
 class ListMarkWidget extends WidgetType {
   constructor(
@@ -63,7 +69,14 @@ class LivePreviewPlugin {
   }
 
   update(update: ViewUpdate): void {
-    if (update.docChanged || update.selectionSet || update.viewportChanged) {
+    if (
+      update.docChanged ||
+      update.selectionSet ||
+      update.viewportChanged ||
+      update.transactions.some((transaction) =>
+        transaction.effects.some((effect) => effect.is(refreshEffect)),
+      )
+    ) {
       const result = buildPreviewDecorations(update.view.state, update.view.viewport);
       this.decorations = result.decorations;
       this.atomic = result.atomic;
@@ -78,6 +91,36 @@ export const livePreview = ViewPlugin.fromClass(LivePreviewPlugin, {
 export const livePreviewAtomicRanges = EditorView.atomicRanges.of(
   (view) => view.plugin(livePreview)?.atomic ?? RangeSet.empty,
 );
+
+function insideCode(state: EditorState, position: number): boolean {
+  let node: SyntaxNode | null = syntaxTree(state).resolveInner(position, 1);
+  while (node) {
+    if (
+      node.name === "FencedCode" ||
+      node.name === "CodeBlock" ||
+      node.name === "InlineCode" ||
+      node.name === "URL"
+    ) {
+      return true;
+    }
+    node = node.parent;
+  }
+  return false;
+}
+
+function insideBlockMath(state: EditorState, position: number): boolean {
+  const line = state.doc.lineAt(position);
+  let markers = 0;
+
+  for (let number = 1; number <= line.number; number += 1) {
+    const current = state.doc.line(number);
+    if (current.text.trim() === "$$" && !insideCode(state, current.from)) {
+      markers += 1;
+    }
+  }
+
+  return markers % 2 === 1;
+}
 
 export function buildPreviewDecorations(
   state: EditorState,
@@ -230,6 +273,14 @@ export function buildPreviewDecorations(
       }
 
       if (name === "FencedCode") {
+        const info = node.node.getChild("CodeInfo");
+        const language = info
+          ? doc.sliceString(info.from, info.to).trim().split(/\s+/)[0]?.toLowerCase()
+          : "";
+        if (language === "mermaid") {
+          return;
+        }
+
         const marks = node.node.getChildren("CodeMark");
         const codeText = node.node.getChild("CodeText");
 
@@ -300,6 +351,46 @@ export function buildPreviewDecorations(
         return;
       }
 
+      if (name === "Image") {
+        if (touches(node.from, node.to)) {
+          return;
+        }
+
+        const marks = node.node.getChildren("LinkMark");
+        const url = node.node.getChild("URL");
+        const title = node.node.getChild("LinkTitle");
+        if (!url) {
+          return;
+        }
+
+        const source = doc.sliceString(url.from, url.to);
+        const alt = marks.length >= 2 ? doc.sliceString(marks[0].to, marks[1].from) : "";
+        const titleText = title
+          ? doc.sliceString(title.from, title.to).replace(/^["']|["']$/g, "")
+          : "";
+
+        ranges.push(
+          Decoration.replace({
+            widget: new ImageWidget(source, alt, titleText, resolveImagePath(source)),
+          }).range(node.from, node.to),
+        );
+        atomicRanges.push(Decoration.replace({}).range(node.from, node.to));
+        return;
+      }
+
+      if (name === "TaskMarker") {
+        const checked = /x/i.test(doc.sliceString(node.from, node.to));
+        const readOnly = state.facet(EditorState.readOnly);
+
+        ranges.push(
+          Decoration.replace({
+            widget: new CheckboxWidget(node.from, node.to, checked, readOnly),
+          }).range(node.from, node.to),
+        );
+        atomicRanges.push(Decoration.replace({}).range(node.from, node.to));
+        return;
+      }
+
       if (name === "ListMark") {
         const marker = doc.sliceString(node.from, node.to);
         if (touches(node.from, node.to)) {
@@ -324,6 +415,31 @@ export function buildPreviewDecorations(
       }
     },
   });
+
+  const visible = doc.sliceString(from, to);
+
+  const blockMath = /\$\$([^$\n]+?)\$\$/g;
+  let match: RegExpExecArray | null;
+  while ((match = blockMath.exec(visible)) !== null) {
+    const start = from + match.index;
+    const end = start + match[0].length;
+    if (touches(start, end) || insideCode(state, start) || insideBlockMath(state, start)) {
+      continue;
+    }
+    ranges.push(Decoration.replace({ widget: new MathWidget(match[1], true) }).range(start, end));
+    atomicRanges.push(Decoration.replace({}).range(start, end));
+  }
+
+  const inlineMath = /(?<!\\)\$(?!\$)([^$\n]+?)(?<![\s\\])\$(?!\$)/g;
+  while ((match = inlineMath.exec(visible)) !== null) {
+    const start = from + match.index;
+    const end = start + match[0].length;
+    if (touches(start, end) || insideCode(state, start) || insideBlockMath(state, start)) {
+      continue;
+    }
+    ranges.push(Decoration.replace({ widget: new MathWidget(match[1], false) }).range(start, end));
+    atomicRanges.push(Decoration.replace({}).range(start, end));
+  }
 
   return {
     decorations: Decoration.set(ranges, true),

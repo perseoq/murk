@@ -4,11 +4,14 @@
 use std::fs;
 use std::path::{Path, PathBuf};
 
+use base64::Engine as _;
 use serde::{Deserialize, Serialize};
 use tauri::AppHandle;
 
 use crate::error::AppError;
 use crate::store;
+
+const MAX_IMAGE_SIZE: u64 = 20 * 1024 * 1024;
 
 #[derive(Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -67,6 +70,13 @@ pub struct RecentEntry {
     pub name: String,
     pub modified_ms: u64,
     pub exists: bool,
+}
+
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ImageData {
+    pub mime: String,
+    pub data_url: String,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
@@ -158,6 +168,24 @@ fn recent_file(app: &AppHandle) -> Result<PathBuf, AppError> {
     Ok(store::config_dir(app)?.join("recent.json"))
 }
 
+fn image_mime(path: &Path) -> Option<&'static str> {
+    match path
+        .extension()
+        .and_then(|extension| extension.to_str())
+        .map(|extension| extension.to_ascii_lowercase())
+        .as_deref()
+    {
+        Some("png") => Some("image/png"),
+        Some("jpg") | Some("jpeg") => Some("image/jpeg"),
+        Some("gif") => Some("image/gif"),
+        Some("webp") => Some("image/webp"),
+        Some("avif") => Some("image/avif"),
+        Some("bmp") => Some("image/bmp"),
+        Some("svg") => Some("image/svg+xml"),
+        _ => None,
+    }
+}
+
 fn build_recent(paths: Vec<String>) -> Vec<RecentEntry> {
     paths
         .into_iter()
@@ -229,6 +257,37 @@ pub fn file_save(
         eol,
         bom: encoded.bom,
         fingerprint: store::fingerprint(&encoded.bytes),
+    })
+}
+
+#[tauri::command]
+pub fn image_load(path: String) -> Result<ImageData, AppError> {
+    let path = PathBuf::from(path);
+    if !path.is_absolute() {
+        return Err(AppError::new("invalid_path", "La ruta debe ser absoluta"));
+    }
+
+    let metadata = fs::metadata(&path)?;
+    if metadata.len() > MAX_IMAGE_SIZE {
+        return Err(AppError::new(
+            "too_large",
+            "La imagen supera el límite de 20 MB",
+        ));
+    }
+
+    let mime = image_mime(&path).ok_or_else(|| {
+        AppError::new(
+            "unsupported_image",
+            "Formato de imagen no soportado (png, jpg, gif, webp, avif, bmp, svg)",
+        )
+    })?;
+
+    let bytes = fs::read(&path)?;
+    let encoded = base64::engine::general_purpose::STANDARD.encode(bytes);
+
+    Ok(ImageData {
+        mime: mime.to_string(),
+        data_url: format!("data:{mime};base64,{encoded}"),
     })
 }
 
@@ -328,5 +387,36 @@ mod tests {
         assert!(!options.bom);
         assert!(!options.convert_eol);
         assert!(options.expected_fingerprint.is_none());
+    }
+
+    #[test]
+    fn image_load_returns_data_url() {
+        let directory = tempfile::tempdir().expect("tempdir");
+        let path = directory.path().join("pixel.png");
+        fs::write(&path, [0x89, 0x50, 0x4E, 0x47]).expect("escribir");
+
+        let image = image_load(path.to_string_lossy().into_owned()).expect("cargar");
+        assert_eq!(image.mime, "image/png");
+        assert!(image.data_url.starts_with("data:image/png;base64,"));
+    }
+
+    #[test]
+    fn image_load_rejects_relative_and_unknown() {
+        assert_eq!(
+            image_load("relativa.png".to_string())
+                .expect_err("relativa")
+                .code,
+            "invalid_path"
+        );
+
+        let directory = tempfile::tempdir().expect("tempdir");
+        let path = directory.path().join("nota.txt");
+        fs::write(&path, b"x").expect("escribir");
+        assert_eq!(
+            image_load(path.to_string_lossy().into_owned())
+                .expect_err("extensión")
+                .code,
+            "unsupported_image"
+        );
     }
 }

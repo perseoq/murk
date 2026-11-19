@@ -40,7 +40,10 @@ import {
   rectangularSelection,
 } from "@codemirror/view";
 import { tags } from "@lezer/highlight";
+import "katex/dist/katex.min.css";
 
+import { blockWidgetsField } from "./block-widgets";
+import { refreshEffect } from "./effects";
 import { livePreview, livePreviewAtomicRanges } from "./live-preview";
 
 const markdownHighlight = HighlightStyle.define([
@@ -172,6 +175,7 @@ export class MurkEditor {
       syntaxHighlighting(markdownHighlight),
       livePreview,
       livePreviewAtomicRanges,
+      blockWidgetsField,
       placeholder("Empieza a escribir en Markdown…"),
       EditorView.contentAttributes.of({
         "aria-label": "Editor de Markdown",
@@ -297,6 +301,10 @@ export class MurkEditor {
 
   focus(): void {
     this.view.focus();
+  }
+
+  refresh(): void {
+    this.view.dispatch({ effects: refreshEffect.of(null) });
   }
 
   undo(): boolean {

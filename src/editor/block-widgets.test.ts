@@ -1,0 +1,77 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
+// Copyright (C) 2026 Murk contributors
+
+import { markdown, markdownLanguage } from "@codemirror/lang-markdown";
+import { EditorState } from "@codemirror/state";
+import { describe, expect, it } from "vitest";
+
+import { buildBlockDecorations } from "./block-widgets";
+
+interface Collected {
+  atomic: number;
+  widgets: number;
+}
+
+function collect(doc: string, cursor = doc.length): Collected {
+  const state = EditorState.create({
+    doc,
+    selection: { anchor: cursor },
+    extensions: [markdown({ base: markdownLanguage })],
+  });
+  const result = buildBlockDecorations(state);
+
+  let atomic = 0;
+  result.atomic.between(0, state.doc.length, () => {
+    atomic += 1;
+  });
+
+  let widgets = 0;
+  result.decorations.between(0, state.doc.length, (_from, _to, value) => {
+    if (value.spec.widget) {
+      widgets += 1;
+    }
+  });
+
+  return { atomic, widgets };
+}
+
+describe("widgets de bloque (A5)", () => {
+  it("sustituye un bloque Mermaid por un widget", () => {
+    const result = collect("```mermaid\ngraph TD\nA-->B\n```\n\ntexto");
+
+    expect(result.widgets).toBe(1);
+    expect(result.atomic).toBe(1);
+  });
+
+  it("revela el código Mermaid cuando el cursor está dentro", () => {
+    const result = collect("```mermaid\ngraph TD\nA-->B\n```\n\ntexto", 15);
+
+    expect(result.widgets).toBe(0);
+    expect(result.atomic).toBe(0);
+  });
+
+  it("sustituye matemáticas en bloque de varias líneas", () => {
+    const result = collect("$$\n\\int_0^1 x^2 dx\n$$\n\ntexto");
+
+    expect(result.widgets).toBe(1);
+    expect(result.atomic).toBe(1);
+  });
+
+  it("revela el bloque matemático con el cursor dentro", () => {
+    const result = collect("$$\n\\int x\n$$\n\ntexto", 4);
+
+    expect(result.widgets).toBe(0);
+  });
+
+  it("no interpreta $$ dentro de un bloque de código", () => {
+    const result = collect("```\n$$\n```\n\ntexto");
+
+    expect(result.widgets).toBe(0);
+  });
+
+  it("no renderiza Mermaid de otros lenguajes", () => {
+    const result = collect("```js\nconst x = 1;\n```\n\ntexto");
+
+    expect(result.widgets).toBe(0);
+  });
+});
