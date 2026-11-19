@@ -3,5 +3,12 @@
   "identifier": "default",
   "description": "Permisos base de la ventana principal de Murk",
   "windows": ["main"],
-  "permissions": ["core:default"]
+  "permissions": [
+    "core:default",
+    "core:window:allow-close",
+    "core:window:allow-set-title",
+    "core:window:allow-set-size",
+    "core:window:allow-maximize",
+    "dialog:default"
+  ]
 }

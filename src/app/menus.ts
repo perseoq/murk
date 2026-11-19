@@ -1,0 +1,90 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
+// Copyright (C) 2026 Murk contributors
+
+export type ActionId =
+  | "file.new"
+  | "file.open"
+  | "file.save"
+  | "file.saveAs"
+  | "file.close"
+  | "file.quit"
+  | "edit.undo"
+  | "edit.redo"
+  | "edit.cut"
+  | "edit.copy"
+  | "edit.paste"
+  | "edit.selectAll"
+  | "view.settings"
+  | "view.theme.light"
+  | "view.theme.dark"
+  | "view.theme.system"
+  | "help.shortcuts"
+  | "help.about";
+
+export interface MenuItemDef {
+  label: string;
+  action: ActionId;
+  shortcut?: string;
+  separatorBefore?: boolean;
+}
+
+export interface MenuDef {
+  id: string;
+  label: string;
+  items: MenuItemDef[];
+}
+
+export const MENUS: MenuDef[] = [
+  {
+    id: "file",
+    label: "Archivo",
+    items: [
+      { label: "Nuevo", action: "file.new", shortcut: "Ctrl+N" },
+      { label: "Abrir…", action: "file.open", shortcut: "Ctrl+O" },
+      { label: "Guardar", action: "file.save", shortcut: "Ctrl+S" },
+      { label: "Guardar como…", action: "file.saveAs", shortcut: "Ctrl+Shift+S" },
+      { label: "Cerrar pestaña", action: "file.close", shortcut: "Ctrl+W" },
+      { label: "Salir", action: "file.quit", shortcut: "Ctrl+Q", separatorBefore: true },
+    ],
+  },
+  {
+    id: "edit",
+    label: "Editar",
+    items: [
+      { label: "Deshacer", action: "edit.undo", shortcut: "Ctrl+Z" },
+      { label: "Rehacer", action: "edit.redo", shortcut: "Ctrl+Shift+Z" },
+      { label: "Cortar", action: "edit.cut", shortcut: "Ctrl+X", separatorBefore: true },
+      { label: "Copiar", action: "edit.copy", shortcut: "Ctrl+C" },
+      { label: "Pegar", action: "edit.paste", shortcut: "Ctrl+V" },
+      { label: "Seleccionar todo", action: "edit.selectAll", shortcut: "Ctrl+A" },
+    ],
+  },
+  {
+    id: "view",
+    label: "Ver",
+    items: [
+      { label: "Preferencias…", action: "view.settings", shortcut: "Ctrl+," },
+      { label: "Tema claro", action: "view.theme.light", separatorBefore: true },
+      { label: "Tema oscuro", action: "view.theme.dark" },
+      { label: "Tema del sistema", action: "view.theme.system" },
+    ],
+  },
+  {
+    id: "help",
+    label: "Ayuda",
+    items: [
+      { label: "Atajos de teclado", action: "help.shortcuts", shortcut: "F1" },
+      { label: "Acerca de Murk", action: "help.about", separatorBefore: true },
+    ],
+  },
+];
+
+export function shortcutFor(action: ActionId): string | undefined {
+  for (const menu of MENUS) {
+    const item = menu.items.find((entry) => entry.action === action);
+    if (item) {
+      return item.shortcut;
+    }
+  }
+  return undefined;
+}
