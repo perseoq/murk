@@ -15,9 +15,10 @@ Actualizado: 2026-11-19.
 | **A4** Live preview v1 | ✅ completada | commit `60bab23`; CI run `44585953963` (36 tests, Rust verde) |
 | **A5** Widgets | ✅ completada | commit `fd55f3a`; CI run `44591278729` (49 tests, Rust verde) |
 | **A6** Tablas | ✅ completada | commit `5a8cbd0`; CI run `44594171940` (57 tests, Rust verde) |
-| **A7–A12** | ⬜ pendientes | — |
+| **A7** Workspace UI | ✅ completada | commit `31692dc`; CI run `44597306324` (61 tests, Rust verde) |
+| **A8–A12** | ⬜ pendientes | — |
 
-**Fases restantes: 6** (A7 a A12).
+**Fases restantes: 5** (A8 a A12).
 
 ## Track 0 — Fundación
 

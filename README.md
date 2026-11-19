@@ -5,7 +5,7 @@ Editor de Markdown de escritorio con **paridad funcional con Typora** (referenci
 - **Stack:** Tauri v2 + Rust + CodeMirror 6 + TypeScript
 - **Plataforma objetivo:** Linux x86_64 (Fedora primero), con arquitectura portable a Windows/macOS
 - **Licencia:** GNU General Public License v3.0 o posterior (`GPL-3.0-or-later`)
-- **Estado:** fase **A6 completada** (tablas GFM con widget, navegación y comandos). Siguiente: A7 Workspace UI.
+- **Estado:** fase **A7 completada** (árbol de archivos, esquema y búsqueda global). Siguiente: A8 Recuperación.
 
 > Murk es un proyecto independiente. No está afiliado, patrocinado ni respaldado por Typora ni por Abner Lee. No contiene código, temas, iconos, tipografías ni documentación de Typora.
 
