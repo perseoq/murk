@@ -16,6 +16,11 @@ También existe un `.tar.gz` portable. En Fedora:
 sudo dnf install murk-1.0.0.x86_64.rpm
 ```
 
+La AppImage se integra sola en el menú al ejecutarla por primera vez: copia su
+`.desktop` e iconos a `~/.local/share` para que GNOME muestre el icono correcto.
+Si prefieres no integrarla, ejecútala desde una ruta temporal y borra
+`~/.local/share/applications/io.github.perseoq.murk.desktop`.
+
 Dependencias de ejecución: WebKitGTK 4.1 y GTK3 (las gestiona el paquete).
 Para exportar a DOCX/EPUB/ODT/LaTeX instala `pandoc`; para PDF se recomienda
 Chromium (o `texlive-xetex` con el motor Pandoc).

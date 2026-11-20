@@ -60,6 +60,11 @@ https://github.com/perseoq/murk/releases/latest/download/latest.json
 
 ## Verificación
 
+Los paquetes incluyen `Murk.desktop` (visible) y
+`io.github.perseoq.murk.desktop` (oculto, usado por GNOME/Wayland para asociar
+la ventana y su icono). La AppImage copia ambos datos a `~/.local/share` en el
+primer arranque.
+
 - [ ] `npm run build`
 - [ ] `npm test`
 - [ ] `cargo fmt --check`

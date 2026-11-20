@@ -13,6 +13,71 @@ pub struct StartupFiles(pub Mutex<Vec<String>>);
 
 const FLAGS_WITH_VALUE: &[&str] = &["--export", "-o", "--output"];
 
+/// Instala el `.desktop` y el icono de una AppImage en el perfil del usuario.
+///
+/// El escritorio GNOME asocia la ventana por su id GTK
+/// (`io.github.perseoq.murk`) con un archivo `.desktop` del mismo nombre. La
+/// AppImage no instala nada por sí sola, así que la primera ejecución deja una
+/// entrada en `~/.local/share/applications` que apunta al propio AppImage.
+#[cfg(target_os = "linux")]
+pub fn integrate_appimage() {
+    let (Ok(appimage), Ok(appdir), Ok(home)) = (
+        std::env::var("APPIMAGE"),
+        std::env::var("APPDIR"),
+        std::env::var("HOME"),
+    ) else {
+        return;
+    };
+
+    let home = PathBuf::from(home);
+    for size in ["128x128", "256x256", "512x512"] {
+        let icon_source = Path::new(&appdir)
+            .join("usr/share/icons/hicolor")
+            .join(size)
+            .join("apps/murk.png");
+        if !icon_source.exists() {
+            continue;
+        }
+        let icon_target = home
+            .join(".local/share/icons/hicolor")
+            .join(size)
+            .join("apps/murk.png");
+        if let Some(parent) = icon_target.parent() {
+            if std::fs::create_dir_all(parent).is_ok() {
+                let _ = std::fs::copy(&icon_source, &icon_target);
+            }
+        }
+    }
+
+    let desktop_dir = home.join(".local/share/applications");
+    let desktop_path = desktop_dir.join("io.github.perseoq.murk.desktop");
+    let exec = appimage.replace('"', "\\\"");
+    let entry = format!(
+        "[Desktop Entry]\n\
+         Type=Application\n\
+         Name=Murk\n\
+         Comment=Editor de Markdown con preview en vivo\n\
+         Exec=\"{exec}\" %F\n\
+         Icon=murk\n\
+         Terminal=false\n\
+         Categories=Office;\n\
+         MimeType=text/markdown;text/x-markdown;\n\
+         StartupWMClass=Murk\n\
+         Keywords=markdown;editor;notes;text;\n\
+         X-AppImage-Version=1.0.0\n"
+    );
+
+    if std::fs::read_to_string(&desktop_path).ok().as_deref() != Some(entry.as_str())
+        && std::fs::create_dir_all(&desktop_dir).is_ok()
+    {
+        let _ = std::fs::write(&desktop_path, entry);
+    }
+}
+
+/// En otros sistemas no hay integración de AppImage.
+#[cfg(not(target_os = "linux"))]
+pub fn integrate_appimage() {}
+
 /// Extrae rutas de archivo de los argumentos, resolviendo relativas contra `cwd`.
 pub fn paths_from_args(args: &[String], cwd: &Path) -> Vec<String> {
     let mut paths = Vec::new();

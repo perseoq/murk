@@ -13,9 +13,13 @@
 
 ### Mejoras
 
-- Nuevo logo de Murk: cuadro azul redondeado con silueta blanca de boxer.
+- Nuevo logo de Murk: cuadro azul redondeado con silueta blanca de la cabeza y
+  el cuello de un boxer **de perfil**, con oreja erguida, hocico corto y papada.
   Se usa como favicon (`public/favicon.svg`) e icono de la aplicación
   (`src-tauri/icons/`, incluidos `.ico` e `.icns`).
+- Integración de icono con GNOME/Wayland mediante `enableGTKAppId` y un
+  `.desktop` con el id `io.github.perseoq.murk`. La AppImage se integra en
+  `~/.local/share` en su primer arranque.
 - **Archivo → Autoguardado** es una opción marcable que activa o desactiva el
   guardado automático sin abrir Preferencias.
 - La barra de estado muestra botones SVG para cambiar entre código fuente,

@@ -1,0 +1,12 @@
+[Desktop Entry]
+Type=Application
+Name=Murk
+Comment=Editor de Markdown con preview en vivo
+Exec=murk %F
+Icon=murk
+Terminal=false
+Categories=Office;
+MimeType=text/markdown;text/x-markdown;
+StartupWMClass=Murk
+Keywords=markdown;editor;notes;text;
+NoDisplay=true
