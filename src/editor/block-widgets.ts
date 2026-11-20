@@ -160,6 +160,7 @@ export function buildBlockDecorations(state: EditorState): BlockWidgetResult {
           widget: new MathWidget(content, true),
         }).range(opening.from, closing.to),
       );
+      ranges.push(Decoration.line({ class: "cm-md-math-line" }).range(opening.from));
       atomic.push(Decoration.replace({}).range(opening.from, closing.to));
     }
 

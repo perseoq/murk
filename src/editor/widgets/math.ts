@@ -19,7 +19,7 @@ export class MathWidget extends WidgetType {
   }
 
   toDOM(): HTMLElement {
-    const element = document.createElement("span");
+    const element = document.createElement(this.display ? "div" : "span");
     element.className = this.display ? "cm-md-math-block" : "cm-md-math-inline";
     element.setAttribute("title", this.source);
 

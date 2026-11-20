@@ -848,10 +848,20 @@ body.resizing {
 }
 
 .cm-md-math-block {
-  display: inline-block;
+  display: block;
   width: 100%;
   margin: 0.6em 0;
   overflow-x: auto;
+  text-align: center;
+}
+
+.cm-md-math-block .katex-display,
+.cm-md-math-block .katex {
+  margin: 0;
+  text-align: center;
+}
+
+.cm-md-math-line {
   text-align: center;
 }
 

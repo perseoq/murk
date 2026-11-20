@@ -1,5 +1,13 @@
 # Changelog
 
+## 1.2.1795202493 - 2026-11-20
+
+### Correcciones
+
+- Las **fórmulas en bloque** se alinean al centro: el widget de matemáticas usa
+  un bloque de ancho completo y la línea del bloque fuerza `text-align:center`.
+  Las fórmulas en línea siguen siendo un `span` dentro del texto.
+
 ## 1.2.1795201324 - 2026-11-20
 
 ### Insertar
