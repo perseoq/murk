@@ -13,6 +13,9 @@
 
 ### Mejoras
 
+- Nuevo logo de Murk: cuadro azul redondeado con silueta blanca de boxer.
+  Se usa como favicon (`public/favicon.svg`) e icono de la aplicación
+  (`src-tauri/icons/`, incluidos `.ico` e `.icns`).
 - **Archivo → Autoguardado** es una opción marcable que activa o desactiva el
   guardado automático sin abrir Preferencias.
 - La barra de estado muestra botones SVG para cambiar entre código fuente,

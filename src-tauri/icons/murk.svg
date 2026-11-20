@@ -1,13 +1,38 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024" role="img" aria-label="Murk">
   <defs>
-    <linearGradient id="g" x1="0" y1="0" x2="1" y2="1">
-      <stop offset="0" stop-color="#38bdf8" />
-      <stop offset="1" stop-color="#6366f1" />
+    <linearGradient id="murk-blue" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#3b82f6" />
+      <stop offset="1" stop-color="#1d4ed8" />
     </linearGradient>
+    <mask id="murk-boxer" maskUnits="userSpaceOnUse" x="0" y="0" width="1024" height="1024">
+      <g fill="#ffffff">
+        <!-- Cuello y pecho -->
+        <path d="M344 646c12 110-22 184-62 246 80 36 380 36 460 0-40-62-74-136-62-246-34 58-90 84-168 84s-134-26-168-84Z" />
+        <!-- Cabeza y jowls -->
+        <path d="M512 276c98 0 168 42 188 120 10 40 8 78 0 112 30 38 44 86 38 132-6 56-32 94-70 114-38 18-82 16-116-2-16-8-28-16-40-26-12 10-24 18-40 26-34 18-78 20-116 2-38-20-64-58-70-114-6-46 8-94 38-132-8-34-10-72 0-112 20-78 90-120 188-120Z" />
+        <!-- Oreja izquierda -->
+        <path d="M348 296c-64-12-116 34-126 106-10 78 14 160 54 212 10 14 26 8 30-12 16-50 18-116 30-170 6-36 12-88 12-136Z" />
+        <!-- Oreja derecha -->
+        <path d="M676 296c64-12 116 34 126 106 10 78-14 160-54 212-10 14-26 8-30-12-16-50-18-116-30-170-6-36-12-88-12-136Z" />
+      </g>
+      <g fill="#000000">
+        <!-- Ojos -->
+        <path d="M444 484c-14-18-44-14-56 4 16 16 44 16 56-4Z" />
+        <path d="M580 484c14-18 44-14 56 4-16 16-44 16-56-4Z" />
+        <!-- Nariz -->
+        <path d="M512 592c30 0 50 18 46 44-4 26-28 42-46 52-18-10-42-26-46-52-4-26 16-44 46-44Z" />
+      </g>
+      <g fill="none" stroke="#000000" stroke-linecap="round">
+        <!-- Stop nasofrontal -->
+        <path d="M512 508v60" stroke-width="10" />
+        <!-- Boca y jowls -->
+        <path d="M512 688v16" stroke-width="12" />
+        <path d="M440 718c24 24 120 24 144 0" stroke-width="12" />
+        <path d="M440 718c-8 16-16 26-26 32" stroke-width="10" />
+        <path d="M584 718c8 16 16 26 26 32" stroke-width="10" />
+      </g>
+    </mask>
   </defs>
-  <rect width="1024" height="1024" rx="224" fill="url(#g)" />
-  <path
-    d="M280 744V280h128l104 168 104-168h128v464H640V488L512 656 384 488v256z"
-    fill="#ffffff"
-  />
+  <rect width="1024" height="1024" rx="224" fill="url(#murk-blue)" />
+  <rect width="1024" height="1024" rx="224" fill="#ffffff" mask="url(#murk-boxer)" />
 </svg>
