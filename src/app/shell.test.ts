@@ -542,6 +542,42 @@ describe("Shell · flujo abrir → editar → guardar", () => {
     root.querySelector<HTMLButtonElement>('[data-action="file.push"]')?.click();
 
     await vi.waitFor(() => expect(mocks.repositoryPush).toHaveBeenCalledWith(["/tmp/nota.md"]));
+
+    await vi.waitFor(() =>
+      expect(root.querySelector(".push-status")?.textContent).toBe(
+        "Push completado correctamente.",
+      ),
+    );
+    expect(root.querySelector(".push-bar-fill")?.classList.contains("done")).toBe(true);
+  });
+
+  it("pregunta si configurar el repositorio cuando Push no está configurado", async () => {
+    const root = document.querySelector<HTMLElement>("#app");
+    if (!root) {
+      throw new Error("falta #app");
+    }
+
+    shell = new Shell(root);
+    await shell.boot();
+
+    const fileButton = Array.from(root.querySelectorAll<HTMLButtonElement>(".menu-button")).find(
+      (button) => button.textContent === "Archivo",
+    );
+    fileButton?.click();
+    root.querySelector<HTMLButtonElement>('[data-action="file.push"]')?.click();
+
+    await vi.waitFor(() =>
+      expect(root.querySelector(".modal-title")?.textContent).toBe("Repositorio no configurado"),
+    );
+
+    const configure = Array.from(
+      root.querySelectorAll<HTMLButtonElement>(".modal-actions .button"),
+    ).find((button) => button.textContent === "Configurar ahora");
+    configure?.click();
+
+    await vi.waitFor(() =>
+      expect(root.querySelector(".modal-title")?.textContent).toBe("Repositorio"),
+    );
   });
 
   it("pide guardar al cerrar con cambios y destruye la ventana", async () => {

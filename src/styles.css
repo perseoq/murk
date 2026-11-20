@@ -1155,6 +1155,67 @@ body.resizing {
   font-size: 12px;
 }
 
+.push-progress {
+  display: grid;
+  gap: 10px;
+  margin-top: 18px;
+}
+
+.push-bar {
+  height: 8px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: var(--murk-hover);
+}
+
+.push-bar-fill {
+  width: 0;
+  height: 100%;
+  border-radius: inherit;
+  background: var(--murk-accent);
+  transition:
+    width 180ms ease,
+    background-color 180ms ease;
+}
+
+.push-bar-fill.running {
+  width: 35%;
+  animation: push-indeterminate 1.2s ease-in-out infinite;
+}
+
+.push-bar-fill.done {
+  width: 100%;
+  background: #2da44e;
+}
+
+.push-bar-fill.failed {
+  width: 100%;
+  background: var(--murk-danger);
+}
+
+@keyframes push-indeterminate {
+  0% {
+    margin-left: -35%;
+  }
+  100% {
+    margin-left: 100%;
+  }
+}
+
+.push-status {
+  margin: 0;
+  font-size: 14px;
+}
+
+.push-detail {
+  margin: 0;
+  color: var(--murk-muted);
+  font-size: 12px;
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+  white-space: pre-wrap;
+}
+
 .field-inline input {
   width: 16px;
   height: 16px;

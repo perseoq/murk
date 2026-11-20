@@ -93,7 +93,9 @@ La configuración se guarda en `~/.murk/config.json`. Murk clona el repositorio
 en `~/.murk/repos/<nombre-del-repo>` y copia allí los documentos publicados.
 
 - **Archivo → Push** guarda el documento activo, hace commit y ejecuta
-  `git push origin <rama>`.
+  `git push origin <rama>`. Muestra una modal con barra de progreso y, al
+  terminar, confirma el resultado o el error concreto. Si no hay repositorio
+  configurado, ofrece configurarlo en ese momento.
 - **Archivo → Autopush** (marcable) repite esa operación cada intervalo tras
   el autoguardado, sin intervención manual.
 

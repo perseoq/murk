@@ -1554,8 +1554,7 @@ export class Shell {
 
   private toggleAutoPush(): void {
     if (!this.repoConfig.url) {
-      this.toast("Configura primero Archivo → Repositorio…");
-      this.showRepository();
+      this.askConfigureRepository();
       return;
     }
 
@@ -1625,8 +1624,7 @@ export class Shell {
 
   private async pushActive(): Promise<void> {
     if (!this.repoConfig.url) {
-      this.toast("Configura la URL del repositorio.");
-      this.showRepository();
+      this.askConfigureRepository();
       return;
     }
 
@@ -1648,19 +1646,94 @@ export class Shell {
     }
 
     this.pushRunning = true;
-    this.toast("Haciendo push…");
+    let finished = false;
+
+    const body = document.createElement("div");
+    body.className = "push-progress";
+    const bar = document.createElement("div");
+    bar.className = "push-bar";
+    const fill = document.createElement("div");
+    fill.className = "push-bar-fill running";
+    bar.append(fill);
+    const status = document.createElement("p");
+    status.className = "push-status";
+    status.textContent = "Preparando el repositorio y subiendo los cambios…";
+    const detail = document.createElement("p");
+    detail.className = "push-detail";
+    detail.textContent = `${this.repoConfig.branch} · ${this.repoConfig.url}`;
+    body.append(bar, status, detail);
+
+    this.openModal({
+      title: "Push",
+      body,
+      onEscape: () => {
+        if (finished) {
+          this.closeModal();
+        }
+      },
+      actions: [],
+    });
+
     try {
       const result = await host.repositoryPush([tab.path]);
+      finished = true;
+      fill.classList.remove("running");
+      fill.classList.add("done");
+      status.textContent = "Push completado correctamente.";
+      detail.textContent = [
+        result.commit ?? "Sin cambios nuevos que commitear.",
+        `Rama: ${result.branch}`,
+        ...result.files.map((file) => `• ${file}`),
+      ].join("\n");
       this.toast(
         result.commit
           ? `Push completado: ${result.commit}`
           : `Push completado en ${result.branch} (sin cambios).`,
       );
+      this.addPushCloseButton();
     } catch (error) {
-      this.toast(`Push falló: ${errorMessage(error)}`);
+      finished = true;
+      fill.classList.remove("running");
+      fill.classList.add("failed");
+      status.textContent = "El push no se pudo completar.";
+      detail.textContent = errorMessage(error);
+      this.addPushCloseButton();
     } finally {
       this.pushRunning = false;
     }
+  }
+
+  private addPushCloseButton(): void {
+    const actions = this.modalLayer.querySelector<HTMLElement>(".modal-actions");
+    if (!actions) {
+      return;
+    }
+    const button = document.createElement("button");
+    button.type = "button";
+    button.className = "button button-primary";
+    button.textContent = "Cerrar";
+    button.addEventListener("click", () => this.closeModal());
+    actions.append(button);
+    button.focus();
+  }
+
+  private askConfigureRepository(): void {
+    this.openModal({
+      title: "Repositorio no configurado",
+      message: "Todavía no hay un repositorio configurado. ¿Quieres configurarlo ahora?",
+      onEscape: () => this.closeModal(),
+      actions: [
+        {
+          label: "Configurar ahora",
+          primary: true,
+          onClick: () => {
+            this.closeModal();
+            this.showRepository();
+          },
+        },
+        { label: "Cancelar", onClick: () => this.closeModal() },
+      ],
+    });
   }
 
   private showRepository(): void {
