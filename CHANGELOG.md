@@ -2,6 +2,12 @@
 
 ## 1.2.1795195353 - 2026-11-20
 
+### Correcciones
+
+- El **modo lectura** reconstruye las tablas al activarse: las celdas dejan de
+  ser editables y desaparecen los botones de añadir/eliminar hasta volver al
+  modo edición.
+
 ### Formato del documento
 
 - **Formato → Fuente → Elementos** incluye ahora **Listas**. La familia, negrita,

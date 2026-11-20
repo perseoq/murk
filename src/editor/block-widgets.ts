@@ -82,7 +82,7 @@ export function buildBlockDecorations(state: EditorState): BlockWidgetResult {
           return;
         }
 
-        const key = `${node.from}:${node.to}:${doc.sliceString(node.from, node.to)}`;
+        const key = `${node.from}:${node.to}:${readOnly ? "ro" : "rw"}:${doc.sliceString(node.from, node.to)}`;
         ranges.push(
           Decoration.replace({
             block: true,

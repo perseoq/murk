@@ -125,6 +125,20 @@ describe("widgets de bloque (A5)", () => {
     expect(result.instances.some((widget) => widget instanceof FrontmatterWidget)).toBe(false);
   });
 
+  it("reconstruye la tabla al cambiar de modo de edición", () => {
+    const table = "| A | B |\n|---|---|\n| 1 | 2 |\n\ntexto";
+    const editable = collect(table);
+    const readOnly = collect(table, table.length, true);
+    const editableTable = editable.instances.find((widget) => widget instanceof TableWidget);
+    const readOnlyTable = readOnly.instances.find((widget) => widget instanceof TableWidget);
+
+    expect(editableTable).toBeInstanceOf(TableWidget);
+    expect(readOnlyTable).toBeInstanceOf(TableWidget);
+    if (editableTable instanceof TableWidget && readOnlyTable instanceof TableWidget) {
+      expect(editableTable.key).not.toBe(readOnlyTable.key);
+    }
+  });
+
   it("mantiene la tabla, Mermaid y las fórmulas renderizadas en solo lectura", () => {
     const table = "| A | B |\n|---|---|\n| 1 | 2 |\n\ntexto";
     const tableInside = collect(table, 3, true);
