@@ -16,6 +16,7 @@ import type { SyntaxNode } from "@lezer/common";
 import { CheckboxWidget } from "./widgets/checkbox";
 import { ImageWidget, resolveImagePath } from "./widgets/image";
 import { MathWidget } from "./widgets/math";
+import { bulletChar, itemOrdinal, listsFromState, orderedMarker } from "./list-style";
 
 class ListMarkWidget extends WidgetType {
   constructor(
@@ -163,10 +164,20 @@ export function buildPreviewDecorations(
   const from = Math.max(0, viewport.from - 4000);
   const to = Math.min(doc.length, Math.max(viewport.to + 4000, 6000));
 
+  const listStyles = listsFromState(state);
+  let listIndex = 0;
+  const listStack: number[] = [];
+  const isListNode = (name: string): boolean => name === "BulletList" || name === "OrderedList";
+
   syntaxTree(state).iterate({
     from,
     to,
     enter: (node) => {
+      if (isListNode(node.name)) {
+        listStack.push(listIndex);
+        listIndex += 1;
+        return;
+      }
       const name = node.name;
 
       if (name.startsWith("ATXHeading")) {
@@ -407,14 +418,24 @@ export function buildPreviewDecorations(
 
       if (name === "ListMark") {
         const marker = doc.sliceString(node.from, node.to);
-        if (touches(node.from, node.to)) {
-          return;
-        }
         const parentName = node.node.parent?.parent?.name ?? "";
         const ordered = parentName === "OrderedList";
+        const current = listStack.at(-1);
+        const style = current === undefined ? undefined : listStyles[String(current)];
+        let display = marker;
+
+        if (style) {
+          if (ordered && style.marker) {
+            display = orderedMarker(style.marker, itemOrdinal(node.node));
+          } else if (!ordered && style.bullet) {
+            display = bulletChar(style.bullet);
+          }
+        }
+
+        // El marcador de lista nunca revela el fuente, ni con el cursor encima.
         ranges.push(
           Decoration.replace({
-            widget: new ListMarkWidget(marker, ordered),
+            widget: new ListMarkWidget(display, ordered),
           }).range(node.from, node.to),
         );
         atomicRanges.push(Decoration.replace({}).range(node.from, node.to));
@@ -426,6 +447,11 @@ export function buildPreviewDecorations(
           Decoration.replace({ widget: new HorizontalRuleWidget() }).range(node.from, node.to),
         );
         atomicRanges.push(Decoration.replace({}).range(node.from, node.to));
+      }
+    },
+    leave: (node) => {
+      if (isListNode(node.name)) {
+        listStack.pop();
       }
     },
   });

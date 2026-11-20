@@ -67,26 +67,23 @@ export function tableWidthsFromState(state: EditorState): Record<string, number[
   return tableWidthsFromFrontmatter(findFrontmatter(state));
 }
 
-export function frontmatterSummary(block: FrontmatterBlock): string {
-  const keys = Object.keys(block.data).length;
-  return keys === 1 ? "1 campo" : `${keys} campos`;
+/** Devuelve el objeto `murk` del frontmatter (o vacío). */
+export function murkFromFrontmatter(block: FrontmatterBlock | null): Record<string, unknown> {
+  return block && isRecord(block.data.murk) ? block.data.murk : {};
 }
 
-/**
- * Guarda las anchuras de una tabla en el frontmatter, creándolo si no existe.
- * El resto de claves YAML se conserva.
- */
-export function setTableWidths(view: EditorView, index: number, widths: number[]): void {
+/** Devuelve el objeto `murk` del documento actual. */
+export function murkFromState(state: EditorState): Record<string, unknown> {
+  return murkFromFrontmatter(findFrontmatter(state));
+}
+
+/** Reescribe el bloque YAML con los datos indicados. */
+function writeFrontmatter(
+  view: EditorView,
+  block: FrontmatterBlock | null,
+  data: Record<string, unknown>,
+): void {
   const state = view.state;
-  const block = findFrontmatter(state);
-  const data: Record<string, unknown> = block ? { ...block.data } : {};
-  const murk = isRecord(data.murk) ? { ...data.murk } : {};
-  const tableWidths = isRecord(murk.tableWidths) ? { ...murk.tableWidths } : {};
-
-  tableWidths[String(index)] = widths.map((width) => Math.max(24, Math.round(width)));
-  murk.tableWidths = tableWidths;
-  data.murk = murk;
-
   const text = stringifyYaml(data, { lineWidth: 0 }).trimEnd();
   const blockText = `---\n${text}\n---`;
   const changes = block
@@ -99,4 +96,37 @@ export function setTableWidths(view: EditorView, index: number, widths: number[]
       };
 
   view.dispatch(changes);
+}
+
+/**
+ * Modifica `murk` en el frontmatter conservando el resto de claves. Si la
+ * función deja `murk` sin propiedades, se mantiene el bloque por sencillez.
+ */
+export function updateMurk(
+  view: EditorView,
+  mutate: (murk: Record<string, unknown>) => void,
+): void {
+  const block = findFrontmatter(view.state);
+  const data: Record<string, unknown> = block ? { ...block.data } : {};
+  const murk = { ...murkFromFrontmatter(block) };
+  mutate(murk);
+  data.murk = murk;
+  writeFrontmatter(view, block, data);
+}
+
+export function frontmatterSummary(block: FrontmatterBlock): string {
+  const keys = Object.keys(block.data).length;
+  return keys === 1 ? "1 campo" : `${keys} campos`;
+}
+
+/**
+ * Guarda las anchuras de una tabla en el frontmatter, creándolo si no existe.
+ * El resto de claves YAML se conserva.
+ */
+export function setTableWidths(view: EditorView, index: number, widths: number[]): void {
+  updateMurk(view, (murk) => {
+    const tableWidths = isRecord(murk.tableWidths) ? { ...murk.tableWidths } : {};
+    tableWidths[String(index)] = widths.map((width) => Math.max(24, Math.round(width)));
+    murk.tableWidths = tableWidths;
+  });
 }

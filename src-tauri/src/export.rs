@@ -1,7 +1,9 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 // Copyright (C) 2026 Murk contributors
 
+use std::collections::HashMap;
 use std::fs;
+use std::io::{Read, Write};
 use std::path::{Path, PathBuf};
 use std::process::Command;
 
@@ -58,7 +60,33 @@ input[type="checkbox"] { margin-right: 0.4em; }
 }
 "#;
 
-#[derive(Debug, Clone, Deserialize)]
+#[derive(Debug, Clone, Deserialize, Default)]
+#[serde(rename_all = "camelCase")]
+pub struct DocxRunStyle {
+    #[serde(default)]
+    pub family: Option<String>,
+    #[serde(default)]
+    pub bold: Option<bool>,
+    #[serde(default)]
+    pub italic: Option<bool>,
+    #[serde(default)]
+    pub heavier: Option<bool>,
+    #[serde(default)]
+    pub highlight: Option<bool>,
+    #[serde(default)]
+    pub color: Option<String>,
+}
+
+#[derive(Debug, Clone, Deserialize, Default)]
+#[serde(rename_all = "camelCase")]
+pub struct ListStyleDescriptor {
+    #[serde(default)]
+    pub marker: Option<String>,
+    #[serde(default)]
+    pub bullet: Option<String>,
+}
+
+#[derive(Debug, Clone, Deserialize, Default)]
 #[serde(rename_all = "camelCase")]
 pub struct ExportRequest {
     pub source_path: Option<String>,
@@ -68,6 +96,16 @@ pub struct ExportRequest {
     pub title: String,
     #[serde(default)]
     pub embed_images: bool,
+    #[serde(default)]
+    pub styles_css: String,
+    #[serde(default)]
+    pub lists_css: String,
+    #[serde(default)]
+    pub list_styles: Vec<ListStyleDescriptor>,
+    #[serde(default)]
+    pub pandoc_content: Option<String>,
+    #[serde(default)]
+    pub docx_styles: std::collections::HashMap<String, DocxRunStyle>,
 }
 
 #[derive(Debug, Serialize)]
@@ -206,6 +244,60 @@ fn strip_frontmatter(content: &str) -> &str {
     content
 }
 
+fn tag_lists(html: &str, styles: &[ListStyleDescriptor]) -> String {
+    if styles.is_empty() {
+        return html.to_string();
+    }
+
+    let mut insertions: Vec<(usize, String)> = Vec::new();
+    let mut index = 0;
+    let mut position = 0;
+
+    while let Some(found) = html[position..].find('<') {
+        let start = position + found;
+        let rest = &html[start..];
+        let is_list = rest.starts_with("<ul") || rest.starts_with("<ol");
+        if !is_list {
+            position = start + 1;
+            continue;
+        }
+        match rest.as_bytes().get(3) {
+            Some(b'>') | Some(b' ') | Some(b'\t') | Some(b'\n') => {}
+            _ => {
+                position = start + 1;
+                continue;
+            }
+        }
+        let Some(end) = rest.find('>').map(|offset| start + offset) else {
+            break;
+        };
+
+        if let Some(style) = styles.get(index) {
+            if style.marker.is_some() || style.bullet.is_some() {
+                let open_tag = &html[start..end];
+                let class = format!("murk-list-{index}");
+                if let Some(class_position) = open_tag.find("class=\"") {
+                    insertions.push((
+                        start + class_position + "class=\"".len(),
+                        format!("{class} "),
+                    ));
+                } else {
+                    insertions.push((start + 3, format!(" class=\"{class}\"")));
+                }
+            }
+        }
+
+        index += 1;
+        position = end + 1;
+    }
+
+    let mut output = html.to_string();
+    for (at, text) in insertions.iter().rev() {
+        output.insert_str(*at, text);
+    }
+    output
+}
+
 pub fn render_html(request: &ExportRequest) -> String {
     let mut options = comrak::Options::default();
     options.extension.table = true;
@@ -216,6 +308,7 @@ pub fn render_html(request: &ExportRequest) -> String {
     options.render.github_pre_lang = true;
 
     let body = comrak::markdown_to_html(strip_frontmatter(&request.content), &options);
+    let body = tag_lists(&body, &request.list_styles);
     let body = if request.embed_images {
         embed_images(&body, &source_directory(request.source_path.as_deref()))
     } else {
@@ -223,9 +316,11 @@ pub fn render_html(request: &ExportRequest) -> String {
     };
 
     format!(
-        "<!doctype html>\n<html lang=\"es\">\n<head>\n<meta charset=\"utf-8\">\n<meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">\n<title>{}</title>\n<style>{}</style>\n</head>\n<body>\n{}</body>\n</html>\n",
+        "<!doctype html>\n<html lang=\"es\">\n<head>\n<meta charset=\"utf-8\">\n<meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">\n<title>{}</title>\n<style>{}\n{}\n{}</style>\n</head>\n<body>\n{}</body>\n</html>\n",
         escape_html(&request.title),
         HTML_CSS,
+        request.styles_css,
+        request.lists_css,
         body
     )
 }
@@ -273,6 +368,178 @@ fn write_file_atomic(path: &Path, bytes: &[u8]) -> Result<(), AppError> {
     store::write_bytes_atomic(path, bytes)
 }
 
+fn word_style_ids(target: &str) -> &'static [&'static str] {
+    match target {
+        "body" => &["Normal", "BodyText", "FirstParagraph"],
+        "h1" => &["Heading1"],
+        "h2" => &["Heading2"],
+        "h3" => &["Heading3"],
+        "h4" => &["Heading4"],
+        "h5" => &["Heading5"],
+        "h6" => &["Heading6"],
+        "code" => &["VerbatimChar", "SourceCode"],
+        "quote" => &["BlockText"],
+        "tableHeader" => &["Table", "Compact"],
+        "link" => &["Hyperlink"],
+        _ => &[],
+    }
+}
+
+fn run_properties(style: &DocxRunStyle) -> String {
+    let mut properties = String::new();
+
+    if let Some(family) = &style.family {
+        let first = family
+            .split(',')
+            .next()
+            .unwrap_or(family)
+            .trim()
+            .trim_matches('\'')
+            .trim_matches('"');
+        if !first.is_empty() {
+            let escaped = escape_html(first);
+            properties.push_str(&format!(
+                "<w:rFonts w:ascii=\"{escaped}\" w:hAnsi=\"{escaped}\"/>"
+            ));
+        }
+    }
+    if style.bold.unwrap_or(false) || style.heavier.unwrap_or(false) {
+        properties.push_str("<w:b/>");
+    }
+    if style.italic.unwrap_or(false) {
+        properties.push_str("<w:i/>");
+    }
+    if let Some(color) = &style.color {
+        let value = color.trim_start_matches('#');
+        if value.len() == 6 && value.chars().all(|character| character.is_ascii_hexdigit()) {
+            properties.push_str(&format!("<w:color w:val=\"{}\"/>", value.to_uppercase()));
+        }
+    }
+    if style.highlight.unwrap_or(false) {
+        properties.push_str("<w:highlight w:val=\"yellow\"/>");
+    }
+
+    properties
+}
+
+fn remove_xml_tag(block: &str, tag: &str) -> String {
+    let open = format!("<{tag}");
+    let close = format!("</{tag}>");
+    let mut output = String::with_capacity(block.len());
+    let mut rest = block;
+
+    loop {
+        let Some(start) = rest.find(&open) else {
+            output.push_str(rest);
+            break;
+        };
+        output.push_str(&rest[..start]);
+        let after = &rest[start..];
+        let Some(gt) = after.find('>') else {
+            break;
+        };
+        if after[..gt].ends_with('/') {
+            rest = &after[gt + 1..];
+        } else if let Some(close_start) = after.find(&close) {
+            rest = &after[close_start + close.len()..];
+        } else {
+            rest = &after[gt + 1..];
+        }
+    }
+
+    output
+}
+
+fn patch_style(xml: &mut String, style_id: &str, properties: &str) {
+    if properties.is_empty() {
+        return;
+    }
+    let needle = format!("w:styleId=\"{style_id}\"");
+    let Some(attribute) = xml.find(&needle) else {
+        return;
+    };
+    let Some(open) = xml[..attribute].rfind("<w:style") else {
+        return;
+    };
+    let Some(close) = xml[open..].find("</w:style>").map(|offset| open + offset) else {
+        return;
+    };
+    let block = &xml[open..close];
+
+    let updated = if let Some(rpr_open) = block.find("<w:rPr>") {
+        let inner_start = rpr_open + "<w:rPr>".len();
+        let inner_end = block[inner_start..]
+            .find("</w:rPr>")
+            .map(|offset| inner_start + offset)
+            .unwrap_or(inner_start);
+        let mut inner = block[inner_start..inner_end].to_string();
+        for tag in ["w:rFonts", "w:b", "w:i", "w:color", "w:highlight"] {
+            inner = remove_xml_tag(&inner, tag);
+        }
+        format!(
+            "{}<w:rPr>{}{}</w:rPr>{}",
+            &block[..rpr_open],
+            inner,
+            properties,
+            &block[inner_end + "</w:rPr>".len()..]
+        )
+    } else {
+        format!("{block}<w:rPr>{properties}</w:rPr>")
+    };
+
+    xml.replace_range(open..close, &updated);
+}
+
+fn apply_docx_styles(path: &Path, styles: &HashMap<String, DocxRunStyle>) -> Result<(), AppError> {
+    if styles.is_empty() {
+        return Ok(());
+    }
+
+    let file = fs::File::open(path)?;
+    let mut archive = zip::ZipArchive::new(file)
+        .map_err(|error| AppError::new("docx_styles", format!("DOCX inválido: {error}")))?;
+    let parent = path.parent().unwrap_or_else(|| Path::new("."));
+    let temporary = parent.join(format!(".murk-docx-{}.docx", std::process::id()));
+    let output = fs::File::create(&temporary)?;
+    let mut writer = zip::ZipWriter::new(output);
+
+    for index in 0..archive.len() {
+        let mut entry = archive
+            .by_index(index)
+            .map_err(|error| AppError::new("docx_styles", format!("DOCX ilegible: {error}")))?;
+        let name = entry
+            .name()
+            .map_err(|error| AppError::new("docx_styles", format!("DOCX ilegible: {error}")))?
+            .to_string();
+        let options =
+            zip::write::SimpleFileOptions::default().compression_method(entry.compression());
+        writer.start_file(name.clone(), options).map_err(|error| {
+            AppError::new("docx_styles", format!("DOCX no escribible: {error}"))
+        })?;
+
+        let mut buffer = Vec::new();
+        entry.read_to_end(&mut buffer)?;
+        if name == "word/styles.xml" {
+            let mut xml = String::from_utf8_lossy(&buffer).into_owned();
+            for (target, style) in styles {
+                let properties = run_properties(style);
+                for id in word_style_ids(target) {
+                    patch_style(&mut xml, id, &properties);
+                }
+            }
+            writer.write_all(xml.as_bytes())?;
+        } else {
+            writer.write_all(&buffer)?;
+        }
+    }
+
+    writer
+        .finish()
+        .map_err(|error| AppError::new("docx_styles", format!("DOCX no cerrable: {error}")))?;
+    fs::rename(&temporary, path)?;
+    Ok(())
+}
+
 fn run_pandoc(
     pandoc: &str,
     format: &str,
@@ -282,7 +549,11 @@ fn run_pandoc(
     let base = source_directory(request.source_path.as_deref());
     let temporary = tempfile::tempdir()?;
     let input = temporary.path().join("documento.md");
-    fs::write(&input, strip_frontmatter(&request.content))?;
+    let pandoc_source = request
+        .pandoc_content
+        .as_deref()
+        .unwrap_or(&request.content);
+    fs::write(&input, strip_frontmatter(pandoc_source))?;
 
     let target = match format {
         "docx" => "docx",
@@ -302,7 +573,7 @@ fn run_pandoc(
     let mut command = Command::new(pandoc);
     command
         .arg(&input)
-        .arg("--from=gfm+tex_math_dollars")
+        .arg("--from=gfm+tex_math_dollars+fancy_lists")
         .arg("--output")
         .arg(output)
         .arg(format!("--resource-path={}", base.display()))
@@ -420,7 +691,11 @@ pub fn export(
                     "Pandoc no está instalado o no se encontró en la ruta configurada",
                 )
             })?;
-            run_pandoc(&pandoc, &format, request, &output)?
+            let engine = run_pandoc(&pandoc, &format, request, &output)?;
+            if format == "docx" {
+                apply_docx_styles(&output, &request.docx_styles)?;
+            }
+            engine
         }
         _ => unreachable!(),
     };
@@ -464,6 +739,7 @@ mod tests {
             content: content.to_string(),
             title: "Prueba".to_string(),
             embed_images: true,
+            ..ExportRequest::default()
         }
     }
 
@@ -481,9 +757,98 @@ mod tests {
             content: content.to_string(),
             title: "Doc".to_string(),
             embed_images: false,
+            ..ExportRequest::default()
         });
         assert!(html.contains("<h1>Título</h1>"));
         assert!(!html.contains("tableWidths"));
+    }
+
+    #[test]
+    fn tags_styled_lists_and_injects_css() {
+        let html = render_html(&ExportRequest {
+            content: "- uno\n- dos\n\n1. a\n2. b\n".to_string(),
+            title: "Listas".to_string(),
+            styles_css: "h1 { color: #ff0000 }".to_string(),
+            lists_css: "ul.murk-list-0 { list-style: none }".to_string(),
+            list_styles: vec![
+                ListStyleDescriptor {
+                    bullet: Some("arrow".to_string()),
+                    marker: None,
+                },
+                ListStyleDescriptor {
+                    bullet: None,
+                    marker: Some("upper-roman".to_string()),
+                },
+            ],
+            ..ExportRequest::default()
+        });
+
+        assert!(html.contains("<ul class=\"murk-list-0\""));
+        assert!(html.contains("<ol class=\"murk-list-1\""));
+        assert!(html.contains("h1 { color: #ff0000 }"));
+        assert!(html.contains("ul.murk-list-0 { list-style: none }"));
+    }
+
+    #[test]
+    fn applies_docx_styles_to_word_styles() {
+        if find_pandoc("").is_none() {
+            return;
+        }
+
+        let directory = tempfile::tempdir().expect("tempdir");
+        let output = directory.path().join("estilos.docx");
+        let mut docx_styles = HashMap::new();
+        docx_styles.insert(
+            "h1".to_string(),
+            DocxRunStyle {
+                family: Some("Georgia, serif".to_string()),
+                bold: Some(true),
+                color: Some("#ff0000".to_string()),
+                ..DocxRunStyle::default()
+            },
+        );
+
+        let mut export_request = request("# Título\n", "docx", output.clone());
+        export_request.docx_styles = docx_styles;
+        export(&export_request, &ExportSettings::default()).expect("docx");
+
+        let file = fs::File::open(&output).expect("docx");
+        let mut archive = zip::ZipArchive::new(file).expect("zip");
+        let mut xml = String::new();
+        archive
+            .by_name("word/styles.xml")
+            .expect("styles.xml")
+            .read_to_string(&mut xml)
+            .expect("leer styles.xml");
+
+        assert!(xml.contains("w:rFonts w:ascii=\"Georgia\""));
+        assert!(xml.contains("w:color w:val=\"FF0000\""));
+        assert!(xml.contains("<w:b/>"));
+    }
+
+    #[test]
+    fn exports_docx_with_custom_ordered_markers() {
+        if find_pandoc("").is_none() {
+            return;
+        }
+
+        let directory = tempfile::tempdir().expect("tempdir");
+        let output = directory.path().join("listas.docx");
+        let mut export_request = request("1. uno\n2. dos\n", "docx", output.clone());
+        export_request.pandoc_content = Some("A) uno\nB) dos\n".to_string());
+        export(&export_request, &ExportSettings::default()).expect("docx");
+
+        let file = fs::File::open(&output).expect("docx");
+        let mut archive = zip::ZipArchive::new(file).expect("zip");
+        let mut xml = String::new();
+        archive
+            .by_name("word/document.xml")
+            .expect("document.xml")
+            .read_to_string(&mut xml)
+            .expect("leer document.xml");
+
+        assert!(xml.contains("uno"));
+        assert!(xml.contains("dos"));
     }
 
     #[test]
@@ -495,6 +860,7 @@ mod tests {
             content: "# Título\n\n| A | B |\n|---|---|\n| 1 | 2 |\n\n- [x] hecha\n".to_string(),
             title: "Doc".to_string(),
             embed_images: false,
+            ..ExportRequest::default()
         });
 
         assert!(result.contains("<h1>Título</h1>"));

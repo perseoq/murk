@@ -33,6 +33,30 @@ import {
 } from "./settings";
 import { shortcutFor, MENUS, type ActionId, type MenuDef } from "./menus";
 import { FORMAT_ACTIONS, type FormatAction } from "../editor/format";
+import {
+  BULLET_OPTIONS,
+  ORDERED_OPTIONS,
+  listIndexAt,
+  listsInState,
+  listsToCss,
+  rewriteListsForPandoc,
+  saveListStyle,
+  type BulletStyle,
+  type ListStyle,
+  type OrderedStyle,
+} from "../editor/list-style";
+import {
+  FONT_FAMILIES,
+  STYLE_TARGETS,
+  applyDocumentStyles,
+  applyStyles,
+  saveStyles,
+  stylesFromState,
+  stylesToCss,
+  type DocumentStyles,
+  type StyleTarget,
+  type TargetStyle,
+} from "./doc-styles";
 import { Workspace, countWords, displayPath, type Tab } from "./state";
 
 type CloseChoice = "save" | "discard" | "cancel";
@@ -706,6 +730,12 @@ export class Shell {
       case "edit.replace":
         this.editCommand("replace");
         break;
+      case "format.font":
+        this.showFontDialog();
+        break;
+      case "format.list":
+        this.showListDialog();
+        break;
       case "format.bold":
         this.editor.format("bold");
         break;
@@ -1267,6 +1297,7 @@ export class Shell {
     const wasDirty = tab.dirty;
     this.workspace.updateContent(tab.id, content);
     tab.cursor = this.editor.getCursor();
+    applyDocumentStyles(this.editor.getState());
     if (!wasDirty) {
       this.renderTabs();
     }
@@ -1434,6 +1465,7 @@ export class Shell {
     this.editor.setSourceMode(this.viewMode === "code" && !this.viewReadOnly);
     this.editor.scrollToRatio(tab.scroll);
     this.editor.requestMeasure();
+    applyDocumentStyles(this.editor.getState());
   }
 
   /** Reemplaza el texto del documento activo mediante una transacción del editor. */
@@ -2319,6 +2351,9 @@ export class Shell {
               this.toast("Exportando…");
 
               try {
+                const state = this.editor.getState();
+                const infos = listsInState(state);
+                const styles = stylesFromState(state);
                 const result = await host.exportDocument({
                   sourcePath: tab.path,
                   outputPath: output,
@@ -2326,6 +2361,15 @@ export class Shell {
                   content: tab.content,
                   title: tab.name,
                   embedImages: embed?.checked ?? true,
+                  stylesCss: stylesToCss(styles, "export"),
+                  listsCss: listsToCss(infos),
+                  listStyles: infos.map((info) => ({
+                    ordered: info.ordered,
+                    marker: info.style?.marker,
+                    bullet: info.style?.bullet,
+                  })),
+                  pandocContent: rewriteListsForPandoc(state),
+                  docxStyles: styles.targets,
                 });
                 this.toast(`Exportado: ${result.path} (${result.engine})`);
               } catch (error) {
@@ -2947,6 +2991,260 @@ export class Shell {
           { label: "Cancelar", onClick: () => finish("cancel") },
         ],
       });
+    });
+  }
+
+  private showFontDialog(): void {
+    if (!this.workspace.active) {
+      return;
+    }
+
+    const original = stylesFromState(this.editor.getState());
+    const working: DocumentStyles = { targets: { ...original.targets } };
+    const form = document.createElement("form");
+    form.className = "settings-form";
+
+    const targetOptions = STYLE_TARGETS.map(
+      (target) => `<option value="${target.id}">${target.label}</option>`,
+    ).join("");
+    const familyOptions = FONT_FAMILIES.map(
+      (font) => `<option value="${font.value}">${font.label}</option>`,
+    ).join("");
+
+    form.innerHTML = `
+      <label class="field">
+        <span>Elemento</span>
+        <select id="font-target">${targetOptions}</select>
+      </label>
+      <label class="field">
+        <span>Familia</span>
+        <select id="font-family">${familyOptions}</select>
+      </label>
+      <div class="field font-flags">
+        <label><input type="checkbox" id="font-bold" /> Negrita</label>
+        <label><input type="checkbox" id="font-italic" /> Cursiva</label>
+        <label><input type="checkbox" id="font-heavier" /> Más negrita</label>
+        <label><input type="checkbox" id="font-highlight" /> Resaltado amarillo</label>
+      </div>
+      <div class="field field-inline">
+        <label><input type="checkbox" id="font-color-on" /> Color de letra</label>
+        <input type="color" id="font-color" value="#1f2328" />
+      </div>
+      <div class="field">
+        <button type="button" class="button" id="font-clear">Quitar formato de este elemento</button>
+      </div>
+      <p class="field-hint">Se guarda en el frontmatter del documento y se aplica al editor y a las exportaciones.</p>
+    `;
+
+    const targetSelect = form.querySelector<HTMLSelectElement>("#font-target");
+    const familySelect = form.querySelector<HTMLSelectElement>("#font-family");
+    const bold = form.querySelector<HTMLInputElement>("#font-bold");
+    const italic = form.querySelector<HTMLInputElement>("#font-italic");
+    const heavier = form.querySelector<HTMLInputElement>("#font-heavier");
+    const highlight = form.querySelector<HTMLInputElement>("#font-highlight");
+    const colorOn = form.querySelector<HTMLInputElement>("#font-color-on");
+    const color = form.querySelector<HTMLInputElement>("#font-color");
+    if (!targetSelect || !familySelect || !bold || !italic || !heavier || !highlight) {
+      return;
+    }
+    if (!colorOn || !color) {
+      return;
+    }
+
+    const refreshControls = (): void => {
+      const style = working.targets[targetSelect.value as StyleTarget] ?? {};
+      if (
+        style.family &&
+        !Array.from(familySelect.options).some((option) => option.value === style.family)
+      ) {
+        const extra = document.createElement("option");
+        extra.value = style.family;
+        extra.textContent = style.family;
+        familySelect.append(extra);
+      }
+      familySelect.value = style.family ?? "";
+      bold.checked = style.bold === true;
+      italic.checked = style.italic === true;
+      heavier.checked = style.heavier === true;
+      highlight.checked = style.highlight === true;
+      colorOn.checked = style.color !== undefined;
+      color.value = style.color ?? "#1f2328";
+      color.disabled = !colorOn.checked;
+    };
+
+    const readControls = (): void => {
+      const target = targetSelect.value as StyleTarget;
+      const style: TargetStyle = {};
+      if (familySelect.value) {
+        style.family = familySelect.value;
+      }
+      if (bold.checked) {
+        style.bold = true;
+      }
+      if (italic.checked) {
+        style.italic = true;
+      }
+      if (heavier.checked) {
+        style.heavier = true;
+      }
+      if (highlight.checked) {
+        style.highlight = true;
+      }
+      if (colorOn.checked) {
+        style.color = color.value;
+      }
+      if (Object.keys(style).length > 0) {
+        working.targets[target] = style;
+      } else {
+        delete working.targets[target];
+      }
+      applyStyles(working);
+    };
+
+    targetSelect.addEventListener("change", refreshControls);
+    for (const control of [familySelect, bold, italic, heavier, highlight, colorOn]) {
+      control.addEventListener("change", readControls);
+    }
+    color.addEventListener("input", readControls);
+    form.querySelector<HTMLButtonElement>("#font-clear")?.addEventListener("click", () => {
+      delete working.targets[targetSelect.value as StyleTarget];
+      refreshControls();
+      applyStyles(working);
+    });
+
+    refreshControls();
+
+    this.openModal({
+      title: "Fuente y estilos",
+      body: form,
+      onEscape: () => {
+        applyDocumentStyles(this.editor.getState());
+        this.closeModal();
+      },
+      actions: [
+        {
+          label: "Aplicar",
+          primary: true,
+          onClick: () => {
+            saveStyles(this.editor.getView(), working);
+            applyDocumentStyles(this.editor.getState());
+            this.editor.refresh();
+            this.closeModal();
+          },
+        },
+        {
+          label: "Cancelar",
+          onClick: () => {
+            applyDocumentStyles(this.editor.getState());
+            this.closeModal();
+          },
+        },
+      ],
+    });
+  }
+
+  private showListDialog(): void {
+    if (!this.workspace.active) {
+      return;
+    }
+
+    const state = this.editor.getState();
+    const infos = listsInState(state);
+    if (infos.length === 0) {
+      this.toast("No hay listas en este documento.");
+      return;
+    }
+
+    const form = document.createElement("form");
+    form.className = "settings-form";
+    const options = infos
+      .map(
+        (info) =>
+          `<option value="${info.index}">Lista ${info.index + 1} · ${
+            info.ordered ? "ordenada" : "desordenada"
+          } · ${info.preview || "sin texto"}</option>`,
+      )
+      .join("");
+
+    form.innerHTML = `
+      <label class="field">
+        <span>Lista</span>
+        <select id="list-target">${options}</select>
+      </label>
+      <div class="field font-flags" id="list-options"></div>
+      <p class="field-hint">El estilo se aplica solo a la lista seleccionada y se guarda en el frontmatter del documento.</p>
+    `;
+
+    const select = form.querySelector<HTMLSelectElement>("#list-target");
+    const optionsBox = form.querySelector<HTMLElement>("#list-options");
+    if (!select || !optionsBox) {
+      return;
+    }
+
+    let selected = listIndexAt(state, state.selection.main.head) ?? infos[0].index;
+    select.value = String(selected);
+
+    const renderOptions = (): void => {
+      const info = infos.find((entry) => entry.index === selected);
+      if (!info) {
+        return;
+      }
+      const current = info.ordered ? info.style?.marker : info.style?.bullet;
+      const entries = info.ordered
+        ? ORDERED_OPTIONS.map(
+            (option) =>
+              `<label><input type="radio" name="list-style" value="${option.id}" ${
+                current === option.id ? "checked" : ""
+              } /> ${option.label}</label>`,
+          )
+        : BULLET_OPTIONS.map(
+            (option) =>
+              `<label><input type="radio" name="list-style" value="${option.id}" ${
+                current === option.id ? "checked" : ""
+              } /> ${option.char} ${option.label}</label>`,
+          );
+
+      optionsBox.innerHTML = [
+        `<label><input type="radio" name="list-style" value="" ${
+          current === undefined ? "checked" : ""
+        } /> Predeterminada</label>`,
+        ...entries,
+      ].join("");
+    };
+
+    select.addEventListener("change", () => {
+      selected = Number(select.value);
+      renderOptions();
+    });
+    renderOptions();
+
+    this.openModal({
+      title: "Estilo de lista",
+      body: form,
+      onEscape: () => this.closeModal(),
+      actions: [
+        {
+          label: "Aplicar",
+          primary: true,
+          onClick: () => {
+            const info = infos.find((entry) => entry.index === selected);
+            const value = form.querySelector<HTMLInputElement>(
+              'input[name="list-style"]:checked',
+            )?.value;
+            if (info) {
+              const style: ListStyle = value
+                ? info.ordered
+                  ? { marker: value as OrderedStyle }
+                  : { bullet: value as BulletStyle }
+                : {};
+              saveListStyle(this.editor.getView(), info.index, style);
+              this.editor.refresh();
+            }
+            this.closeModal();
+          },
+        },
+        { label: "Cancelar", onClick: () => this.closeModal() },
+      ],
     });
   }
 

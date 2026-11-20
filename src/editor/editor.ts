@@ -313,6 +313,14 @@ export class MurkEditor {
     return this.view.state.doc.toString();
   }
 
+  getState(): EditorState {
+    return this.view.state;
+  }
+
+  getView(): EditorView {
+    return this.view;
+  }
+
   getCursor(): number {
     return this.view.state.selection.main.head;
   }

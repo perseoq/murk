@@ -11,6 +11,7 @@ interface Collected {
   atomic: Array<[number, number]>;
   classes: string[];
   widgets: number;
+  texts: string[];
 }
 
 function collect(doc: string, cursor = doc.length, readOnly = false): Collected {
@@ -27,6 +28,7 @@ function collect(doc: string, cursor = doc.length, readOnly = false): Collected 
   });
 
   const classes: string[] = [];
+  const texts: string[] = [];
   let widgets = 0;
   result.decorations.between(0, state.doc.length, (_from, _to, value) => {
     if (typeof value.spec.class === "string") {
@@ -34,10 +36,14 @@ function collect(doc: string, cursor = doc.length, readOnly = false): Collected 
     }
     if (value.spec.widget) {
       widgets += 1;
+      const text = (value.spec.widget as { text?: unknown }).text;
+      if (typeof text === "string") {
+        texts.push(text);
+      }
     }
   });
 
-  return { atomic, classes, widgets };
+  return { atomic, classes, widgets, texts };
 }
 
 describe("live preview (A4)", () => {
@@ -88,6 +94,17 @@ describe("live preview (A4)", () => {
 
     expect(result.atomic.length).toBeGreaterThanOrEqual(4);
     expect(result.classes).toContain("cm-md-link");
+  });
+
+  it("usa viñetas y numeración personalizadas del frontmatter", () => {
+    const doc =
+      "---\nmurk:\n  lists:\n    '0':\n      bullet: check\n    '1':\n      marker: upper-alpha\n---\n\n- uno\n- dos\n\n1. a\n2. b\n";
+    const result = collect(doc);
+
+    expect(result.texts).toContain("✔");
+    expect(result.texts).toContain("A)");
+    expect(result.texts).toContain("B)");
+    expect(result.texts).not.toContain("•");
   });
 
   it("acepta los delimitadores MathJax \\( \\) y \\[ \\]", () => {

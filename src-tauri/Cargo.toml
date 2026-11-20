@@ -1,6 +1,6 @@
 [package]
 name = "murk"
-version = "1.2.1795183629"
+version = "1.2.1795185312"
 description = "Editor de Markdown con preview en vivo"
 authors = ["Rodrigo Quintanar <djperseo@outlook.es>"]
 license = "GPL-3.0-or-later"
@@ -30,6 +30,7 @@ tauri-plugin-dialog = "2.8.4"
 tauri-plugin-single-instance = "2.5.5"
 tauri-plugin-updater = "2.14.1"
 tempfile = "3"
+zip = { version = "9", default-features = false, features = ["deflate"] }
 
 [profile.release]
 panic = "abort"

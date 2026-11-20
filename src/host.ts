@@ -108,6 +108,11 @@ export interface ExportRequest {
   content: string;
   title: string;
   embedImages: boolean;
+  stylesCss?: string;
+  listsCss?: string;
+  listStyles?: Array<{ ordered: boolean; marker?: string; bullet?: string }>;
+  pandocContent?: string;
+  docxStyles?: Record<string, unknown>;
 }
 
 export interface ExportResult {

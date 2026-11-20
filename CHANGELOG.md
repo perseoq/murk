@@ -1,5 +1,22 @@
 # Changelog
 
+## 1.2.1795185312 - 2026-11-20
+
+### Formato del documento
+
+- **Formato → Fuente…**: familia tipográfica, negrita, cursiva, más negrita,
+  resaltado amarillo y color de letra para H1–H6, código, citas, cabeceras de
+  tabla, enlaces y texto normal.
+- **Formato → Lista…**: viñetas (flechas, palomitas, puntos negros y blancos) y
+  numeración (`a)`, `A)`, `I)`, `I.`, `1.`, `1)`) aplicadas **solo a la lista
+  seleccionada**. En la vista previa los marcadores de lista nunca muestran el
+  código fuente.
+- La configuración se guarda en el frontmatter YAML (`murk.styles` y
+  `murk.lists`) y se aplica al editor, HTML, PDF y DOCX. En DOCX las fuentes,
+  colores, negritas, cursivas y resaltados se inyectan en los estilos de Word y
+  la numeración ordenada se conserva mediante listas *fancy*; las viñetas
+  personalizadas usan el estilo de lista estándar de Word.
+
 ## 1.2.1795183629 - 2026-11-20
 
 ### Tablas

@@ -81,6 +81,7 @@ pub fn run(args: Vec<String>) -> Option<i32> {
         content,
         title,
         embed_images: true,
+        ..ExportRequest::default()
     };
 
     match export::export(&request, &ExportSettings::default()) {

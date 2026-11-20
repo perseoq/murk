@@ -25,6 +25,8 @@ export type ActionId =
   | "edit.find"
   | "edit.findNext"
   | "edit.replace"
+  | "format.font"
+  | "format.list"
   | "format.bold"
   | "format.italic"
   | "format.strikethrough"
@@ -118,7 +120,9 @@ export const MENUS: MenuDef[] = [
     id: "format",
     label: "Formato",
     items: [
-      { label: "Negrita", action: "format.bold", shortcut: "Ctrl+B" },
+      { label: "Fuente…", action: "format.font" },
+      { label: "Lista…", action: "format.list" },
+      { label: "Negrita", action: "format.bold", shortcut: "Ctrl+B", separatorBefore: true },
       { label: "Cursiva", action: "format.italic", shortcut: "Ctrl+I" },
       { label: "Tachado", action: "format.strikethrough", shortcut: "Alt+Shift+5" },
       { label: "Código en línea", action: "format.code", shortcut: "Ctrl+Shift+`" },

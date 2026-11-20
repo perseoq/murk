@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 // Copyright (C) 2026 Murk contributors
 
+import { EditorState } from "@codemirror/state";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => ({
@@ -72,6 +73,14 @@ vi.mock("../editor/editor", () => {
 
     getContent(): string {
       return this.content;
+    }
+
+    getState(): EditorState {
+      return EditorState.create({ doc: this.content });
+    }
+
+    getView(): never {
+      return {} as never;
     }
 
     getCursor(): number {

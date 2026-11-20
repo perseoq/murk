@@ -13,7 +13,7 @@ Artefactos disponibles en GitHub Releases:
 También existe un `.tar.gz` portable. En Fedora:
 
 ```bash
-sudo dnf install murk-1.2.1795183629.x86_64.rpm
+sudo dnf install murk-1.2.1795185312.x86_64.rpm
 ```
 
 La AppImage se integra sola en el menú al ejecutarla por primera vez: copia su
@@ -47,6 +47,16 @@ Chromium (o `texlive-xetex` con el motor Pandoc).
   acciones de tabla.
 - Buscar `Ctrl+F`, buscar en archivos `Ctrl+Shift+F`, reemplazar `Ctrl+H`.
 - Guardar `Ctrl+S`; guardar como `Ctrl+Shift+S`.
+
+## Formato del documento
+
+- **Formato → Fuente…** permite cambiar familia, negrita, cursiva, más negrita,
+  resaltado amarillo y color para H1–H6, código, citas, cabeceras de tabla,
+  enlaces y texto normal.
+- **Formato → Lista…** cambia las viñetas o la numeración de **una sola lista**:
+  flechas, palomitas, puntos negros/blancos; `a)`, `A)`, `I)`, `I.`, `1.`, `1)`.
+- Ambos estilos se guardan en el frontmatter YAML y se aplican al editor, a las
+  exportaciones HTML/PDF y a Word.
 
 ## Tablas
 
