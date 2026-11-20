@@ -123,16 +123,29 @@ describe("widget de tabla", () => {
 
     button("+ Fila")?.click();
     await Promise.resolve();
-    expect(changes[0]).toMatchObject({ insert: "\n|    |    |" });
+    expect(changes[0]).toMatchObject({ insert: "\n| \u200b | \u200b |" });
 
     button("+ Columna")?.click();
     await Promise.resolve();
     expect(changes[1]).toMatchObject({ from: table.from, to: table.to });
     const added = (changes[1] as { insert: string }).insert;
     expect(added).toContain("Columna");
-    expect(added.split("\n")[0].split("|")).toHaveLength(5);
+    const addedLines = added.split("\n");
+    expect(addedLines).toHaveLength(3);
+    expect(addedLines[0].split("|")).toHaveLength(5);
+    expect(addedLines[2].split("|")).toHaveLength(5);
 
     element.remove();
+  });
+
+  it("parsea las celdas vacías de una columna nueva", () => {
+    const { table } = build(
+      false,
+      "| A | B | Columna |\n| --- | --- | --- |\n| 1 | 2 | \u200b |\n| 3 | 4 | \u200b |\n\ntexto",
+    );
+    expect(table.header).toHaveLength(3);
+    expect(table.rows[0]).toHaveLength(3);
+    expect(table.rows[1]).toHaveLength(3);
   });
 
   it("elimina solo la columna cuyo título se pulsa", async () => {

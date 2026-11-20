@@ -8,6 +8,9 @@
   contenido editable de la celda vive en un elemento separado de los botones
   (al enfocar ya no se pierden las `×`) y los cambios se aplican en una
   microtarea, evitando reentradas de CodeMirror desde eventos del widget.
+- Al **añadir una columna**, todas las filas reciben su celda. Las celdas vacías
+  se conservan con un marcador invisible porque el parser GFM omite las celdas
+  vacías al final de una fila; el editor las muestra y las trata como vacías.
 
 ## 1.2.1795187255 - 2026-11-20
 

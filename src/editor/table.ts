@@ -32,9 +32,16 @@ export interface TableContext {
   cell: CellData;
 }
 
+const EMPTY_CELL = "\u200b";
+
 function cellData(state: EditorState, cell: SyntaxNode): CellData {
   return {
-    text: state.sliceDoc(cell.from, cell.to).trim(),
+    // El parser GFM omite las celdas vacías al final de una fila. El marcador
+    // invisible mantiene la celda en el árbol sin mostrarse en el editor.
+    text: state
+      .sliceDoc(cell.from, cell.to)
+      .replace(/\u200b/g, "")
+      .trim(),
     from: cell.from,
     to: cell.to,
   };
@@ -167,7 +174,7 @@ export function serializeTable(
   const columns = Math.max(header.length, ...rows.map((row) => row.length), 1);
 
   const normalize = (row: string[]): string[] =>
-    Array.from({ length: columns }, (_, index) => (row[index] ?? "").trim());
+    Array.from({ length: columns }, (_, index) => (row[index] ?? "").trim() || EMPTY_CELL);
 
   const headerCells = normalize(header);
   const dataRows = rows.map(normalize);
@@ -186,7 +193,7 @@ export function serializeTable(
 }
 
 export function emptyRow(columns: number): string {
-  return `| ${Array.from({ length: columns }, () => "  ").join(" | ")} |`;
+  return `| ${Array.from({ length: columns }, () => EMPTY_CELL).join(" | ")} |`;
 }
 
 function rebuild(

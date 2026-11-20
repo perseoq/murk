@@ -135,9 +135,8 @@ export class TableWidget extends WidgetType {
         return;
       }
       defer(() => {
-        view.dispatch({
-          changes: { from: cell.from, to: cell.to, insert: raw.replace(/\|/g, "\\|") },
-        });
+        const insert = raw.replace(/\|/g, "\\|") || "\u200b";
+        view.dispatch({ changes: { from: cell.from, to: cell.to, insert } });
       });
     };
     const deleteRow = (rowIndex: number): void => {
