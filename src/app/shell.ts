@@ -3551,7 +3551,12 @@ export class Shell {
     const version = await host.version();
     const body = document.createElement("div");
     body.className = "about";
-    body.textContent = `Murk ${version}\nEditor de Markdown con preview en vivo.\nLicencia GPL-3.0-or-later.`;
+    body.textContent = `Murk ${version}
+Editor de Markdown con preview en vivo.
+
+Creador y mantenedor: Rodrigo Quintanar
+Contacto: djperseo@outlook.es
+Licencia GPL-3.0-or-later.`;
 
     this.openModal({
       title: "Acerca de Murk",

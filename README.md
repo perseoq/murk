@@ -1,99 +1,108 @@
 # Murk
 
-Editor de Markdown de escritorio con **paridad funcional con Typora** (referencia: Typora 1.14.9 para Linux).
+**Murk** es un editor de Markdown de escritorio para Linux, rápido y ligero.
+Escribe en Markdown y ve el resultado renderizado al instante, con tablas,
+matemáticas, diagramas, imágenes y exportación a varios formatos.
 
-- **Stack:** Tauri v2 + Rust + CodeMirror 6 + TypeScript
-- **Plataforma objetivo:** Linux x86_64 (Fedora primero), con arquitectura portable a Windows/macOS
-- **Licencia:** GNU General Public License v3.0 o posterior (`GPL-3.0-or-later`)
 - **Versión:** 1.2.1795142574
-- **Estado:** release publicado con paquetes `.deb`, `.rpm`, AppImage y updater firmado.
+- **Plataforma:** Linux x86_64 (`.deb`, `.rpm` y AppImage)
+- **Licencia:** GNU General Public License v3.0 o posterior
 
-> Murk es un proyecto independiente. No está afiliado, patrocinado ni respaldado por Typora ni por Abner Lee. No contiene código, temas, iconos, tipografías ni documentación de Typora.
+## Características
 
-## Qué significa “100% similar”
+- **Vista previa en vivo** sobre el propio Markdown, sin panel dividido.
+- **Markdown GFM**: encabezados, listas, tablas, tareas, citas, código,
+  enlaces, imágenes, notas al pie y HTML permitido.
+- **Matemáticas** con KaTeX y **diagramas** Mermaid.
+- **Tablas editables**: insertar, añadir o borrar filas y columnas, alinear.
+- **Espacio de trabajo**: pestañas, árbol de archivos, esquema del documento y
+  búsqueda global.
+- **Búsqueda y reemplazo** con expresiones regulares y búsqueda en archivos.
+- **Exportación** a HTML, PDF, DOCX, EPUB y LaTeX; también desde la CLI.
+- **Autoguardado** configurable, snapshots y recuperación tras un cierre
+  inesperado.
+- **Temas** claro, oscuro y automático según el sistema.
+- **Git integrado**: configura un repositorio, haz commit y publica con un clic.
+- **Actualizaciones firmadas** desde GitHub Releases.
+- **CLI e integración con el escritorio**: abrir archivos, instancia única y
+  asociación de archivos `.md`.
 
-La meta es **paridad de comportamiento observable**: que un usuario de Typora encuentre las mismas funciones, flujos, atajos y resultados. No significa copiar el producto.
+## Instalación
 
-| Sí | No |
+Descarga el paquete desde la página de
+[releases](https://github.com/perseoq/murk/releases/latest).
+
+### Debian, Ubuntu y derivados
+
+```bash
+sudo apt install ./Murk_1.2.1795142574_amd64.deb
+```
+
+### Fedora, RHEL y derivados
+
+```bash
+sudo dnf install ./Murk-1.2.1795142574-1.x86_64.rpm
+```
+
+### AppImage (cualquier distribución)
+
+```bash
+chmod +x Murk_1.2.1795142574_amd64.AppImage
+./Murk_1.2.1795142574_amd64.AppImage
+```
+
+La AppImage se integra en el menú de aplicaciones la primera vez que se
+ejecuta: crea su entrada `.desktop` y copia los iconos a `~/.local/share`.
+Si mueves el archivo, la entrada se actualiza en el siguiente arranque.
+
+## Primeros pasos
+
+1. Abre Murk y crea un documento con **Ctrl+N** o abre uno con **Ctrl+O**.
+2. Escribe en Markdown; el resultado se renderiza en el mismo editor.
+3. Guarda con **Ctrl+S**. El autoguardado puede activarse en
+   **Archivo → Autoguardado**.
+4. Exporta desde **Archivo → Exportar** o con la CLI:
+
+```bash
+murk --export pdf -o salida.pdf documento.md
+```
+
+## Atajos principales
+
+| Acción | Atajo |
 |---|---|
-| Misma UX y mismos flujos | Copiar `app.asar`, `lib.asar` o bytecode |
-| Mismos formatos de archivo | Copiar CSS, temas, iconos o `Docs/*.md` |
-| Mismos atajos y menús | Usar el nombre o logo “Typora” |
-| Misma semántica Markdown/GFM | Redistribuir binarios parcheados |
+| Nuevo / abrir / guardar | `Ctrl+N` / `Ctrl+O` / `Ctrl+S` |
+| Guardar como | `Ctrl+Shift+S` |
+| Buscar / reemplazar | `Ctrl+F` / `Ctrl+H` |
+| Buscar en archivos | `Ctrl+Shift+F` |
+| Negrita / cursiva / enlace | `Ctrl+B` / `Ctrl+I` / `Ctrl+K` |
+| Insertar tabla | `Ctrl+Shift+T` |
+| Alternar código fuente | `Ctrl+/` |
+| Modo enfoque / máquina de escribir | `F8` / `F9` |
+| Preferencias | `Ctrl+,` |
 
-Ver `specs/matriz-paridad-typora.md` para la matriz completa y `docs/01-legal-licencia.md` para las reglas.
+## Actualizaciones
 
-## Documentación
+Murk comprueba las actualizaciones firmadas publicadas en GitHub Releases.
+Puedes buscarlas manualmente desde **Ayuda → Buscar actualizaciones**.
+
+## Datos de la aplicación
 
 | Ruta | Contenido |
 |---|---|
-| `docs/00-vision-alcance.md` | Visión, personas, alcance, métricas |
-| `docs/01-legal-licencia.md` | GPLv3, clean-room, política de assets |
-| `docs/02-arquitectura.md` | Arquitectura, módulos, IPC, seguridad |
-| `docs/03-modelo-datos.md` | Entidades, estado, rutas, persistencia |
-| `docs/04-ui-ux-preferencias.md` | Layout, menús, preferencias |
-| `docs/05-editor-live-preview.md` | Núcleo CM6 y preview en vivo |
-| `docs/06-markdown-gfm.md` | Dialecto Markdown soportado |
-| `docs/07-tablas.md` | Edición de tablas GFM |
-| `docs/08-matematicas-diagramas.md` | KaTeX y Mermaid |
-| `docs/09-imagenes.md` | Inserción, rutas, exportación |
-| `docs/10-archivos-workspace.md` | Pestañas, árbol, watcher, encoding |
-| `docs/11-autosave-recuperacion.md` | Autoguardado, snapshots, recuperación |
-| `docs/12-exportacion.md` | HTML, PDF, DOCX, EPUB, LaTeX |
-| `docs/13-temas-css.md` | Sistema de temas y CSS de impresión |
-| `docs/14-atajos-spellcheck-ime.md` | Atajos, corrector, IME |
-| `docs/15-busqueda-reemplazo.md` | Búsqueda local y global |
-| `docs/16-cli-integracion-so.md` | CLI, MIME, `.desktop`, protocolo |
-| `docs/17-rendimiento.md` | Presupuestos y estrategias |
-| `docs/18-seguridad-privacidad.md` | Modelo de amenazas y CSP |
-| `docs/19-accesibilidad-i18n.md` | WCAG, teclado, traducciones |
-| `docs/20-empaquetado-actualizaciones.md` | deb/rpm/AppImage, updater |
-| `docs/21-testing-qa.md` | Estrategia de pruebas |
-| `docs/22-hitos-riesgos.md` | Plan por hitos y riesgos |
-| `docs/23-glosario.md` | Términos |
-| `docs/24-guia-usuario.md` | Guía de instalación y uso |
-| `CHANGELOG.md` | Cambios por versión |
-| `specs/qa-a12.md` | Checklist de release |
-| `specs/estado-a11.md` | Estado de paridad y brechas |
-
-Flujos en Mermaid: `flows/` · Diagramas: `diagrams/` · Contratos y criterios: `specs/` · Decisiones: `adr/`.
-
-## Desarrollo
-
-Requisitos en Fedora:
-
-```bash
-sudo dnf install webkit2gtk4.1-devel gtk3-devel librsvg2-devel \
-  openssl-devel libayatana-appindicator-gtk3-devel libxdo-devel patchelf
-```
-
-Interfaz y escritorio:
-
-```bash
-npm install
-npm run dev          # solo interfaz en el navegador
-npm run tauri dev    # aplicación de escritorio
-npm run tauri build  # paquetes (deb/rpm/AppImage)
-```
-
-Calidad:
-
-```bash
-npm run lint
-npm run format:check
-npm run build
-cd src-tauri && cargo fmt --check && cargo clippy --all-targets -- -D warnings && cargo test
-```
-
-CI ejecuta frontend y Rust en cada push a `main` (`.github/workflows/ci.yml`).
+| `~/.murk/config.json` | Configuración y repositorio git |
+| `~/.murk/repos/` | Clones locales gestionados por Murk |
+| `~/.config/murk/` | Preferencias, sesión y recuperación |
 
 ## Licencia
 
-Murk se distribuye bajo **GPL-3.0-or-later**. El texto completo está en `LICENSE.md`. Cada archivo fuente debe llevar:
+Murk se distribuye bajo **GPL-3.0-or-later**. Consulta `LICENSE.md` para el
+texto completo y `NOTICE.md` para las licencias de terceros.
 
-```text
-SPDX-License-Identifier: GPL-3.0-or-later
-Copyright (C) 2026 Murk contributors
-```
+## Autor
 
-Las dependencias externas y sus licencias están en `NOTICE.md`.
+**Rodrigo Quintanar** — creador y mantenedor
+[djperseo@outlook.es](mailto:djperseo@outlook.es)
+
+> Murk es un proyecto independiente. No está afiliado, patrocinado ni
+> respaldado por Typora ni por sus autores.

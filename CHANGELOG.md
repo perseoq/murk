@@ -17,6 +17,8 @@
 
 ### Mejoras
 
+- **Acerca de Murk** muestra el creador y mantenedor (Rodrigo Quintanar) y su
+  contacto; los paquetes usan el mismo dato como `Maintainer`/`publisher`.
 - Nuevo logo de Murk: cuadro azul redondeado con silueta blanca de la cabeza y
   el cuello de un boxer **de perfil**, con oreja erguida, hocico corto y papada.
   Se usa como favicon (`public/favicon.svg`) e icono de la aplicación
