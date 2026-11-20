@@ -96,6 +96,11 @@ describe("live preview (A4)", () => {
     expect(result.classes).toContain("cm-md-link");
   });
 
+  it("marca las líneas de lista para aplicar estilos", () => {
+    const result = collect("- uno\n- dos\n");
+    expect(result.classes).toContain("cm-md-list-item");
+  });
+
   it("usa viñetas y numeración personalizadas del frontmatter", () => {
     const doc =
       "---\nmurk:\n  lists:\n    '0':\n      bullet: check\n    '1':\n      marker: upper-alpha\n---\n\n- uno\n- dos\n\n1. a\n2. b\n";

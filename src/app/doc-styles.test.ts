@@ -47,6 +47,7 @@ describe("estilos del documento", () => {
       targets: {
         h1: { family: "Georgia, serif", heavier: true, highlight: true },
         tableHeader: { bold: true },
+        list: { italic: true },
         link: { color: "#0066cc" },
       },
     });
@@ -57,10 +58,12 @@ describe("estilos del documento", () => {
     expect(editor).toContain("font-weight:800");
     expect(editor).toContain("background-color:#fff59d");
     expect(editor).toContain(".editor-host .cm-md-table th");
+    expect(editor).toContain(".editor-host .cm-md-list-item");
 
     const exported = stylesToCss(styles, "export");
     expect(exported).toContain("h1 {");
     expect(exported).toContain("thead th {");
+    expect(exported).toContain("li {");
     expect(exported).toContain("a {");
     expect(exported).not.toContain("cm-md-h1");
   });

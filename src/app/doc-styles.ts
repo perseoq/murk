@@ -7,7 +7,18 @@ import type { EditorView } from "@codemirror/view";
 import { findFrontmatter, murkFromFrontmatter, updateMurk } from "../editor/frontmatter";
 
 export type StyleTarget =
-  "body" | "h1" | "h2" | "h3" | "h4" | "h5" | "h6" | "code" | "quote" | "tableHeader" | "link";
+  | "body"
+  | "h1"
+  | "h2"
+  | "h3"
+  | "h4"
+  | "h5"
+  | "h6"
+  | "code"
+  | "list"
+  | "quote"
+  | "tableHeader"
+  | "link";
 
 export interface TargetStyle {
   family?: string;
@@ -31,6 +42,7 @@ export const STYLE_TARGETS: Array<{ id: StyleTarget; label: string }> = [
   { id: "h5", label: "Título 5 (H5)" },
   { id: "h6", label: "Título 6 (H6)" },
   { id: "code", label: "Código" },
+  { id: "list", label: "Listas" },
   { id: "quote", label: "Cita" },
   { id: "tableHeader", label: "Cabecera de tabla" },
   { id: "link", label: "Enlace" },
@@ -58,6 +70,7 @@ const EDITOR_SELECTORS: Record<StyleTarget, string> = {
   h5: ".cm-md-h5",
   h6: ".cm-md-h6",
   code: ".cm-md-inline-code, .cm-md-code-line, .cm-md-table code",
+  list: ".cm-md-list-item, .cm-md-list-bullet, .cm-md-list-number",
   quote: ".cm-md-quote",
   tableHeader: ".cm-md-table th",
   link: ".cm-md-link, .cm-md-table-link",
@@ -72,6 +85,7 @@ const EXPORT_SELECTORS: Record<StyleTarget, string> = {
   h5: "h5",
   h6: "h6",
   code: "code, pre code, pre",
+  list: "li",
   quote: "blockquote",
   tableHeader: "thead th",
   link: "a",

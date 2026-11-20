@@ -1,5 +1,13 @@
 # Changelog
 
+## 1.2.1795195353 - 2026-11-20
+
+### Formato del documento
+
+- **Formato → Fuente → Elementos** incluye ahora **Listas**. La familia, negrita,
+  cursiva, más negrita, resaltado y color se aplican a las líneas de lista en el
+  editor y a los elementos `li` en HTML/PDF/DOCX.
+
 ## 1.2.1795192054 - 2026-11-20
 
 ### Correcciones

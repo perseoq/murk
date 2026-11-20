@@ -378,6 +378,7 @@ fn word_style_ids(target: &str) -> &'static [&'static str] {
         "h5" => &["Heading5"],
         "h6" => &["Heading6"],
         "code" => &["VerbatimChar", "SourceCode"],
+        "list" => &["ListParagraph", "Compact"],
         "quote" => &["BlockText"],
         "tableHeader" => &["Table", "Compact"],
         "link" => &["Hyperlink"],

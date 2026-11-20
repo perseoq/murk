@@ -165,6 +165,7 @@ export function buildPreviewDecorations(
   const to = Math.min(doc.length, Math.max(viewport.to + 4000, 6000));
 
   const listStyles = listsFromState(state);
+  const listLines = new Set<number>();
   let listIndex = 0;
   const listStack: number[] = [];
   const isListNode = (name: string): boolean => name === "BulletList" || name === "OrderedList";
@@ -430,6 +431,12 @@ export function buildPreviewDecorations(
           } else if (!ordered && style.bullet) {
             display = bulletChar(style.bullet);
           }
+        }
+
+        const lineStart = doc.lineAt(node.from).from;
+        if (!listLines.has(lineStart)) {
+          listLines.add(lineStart);
+          ranges.push(Decoration.line({ class: "cm-md-list-item" }).range(lineStart));
         }
 
         // El marcador de lista nunca revela el fuente, ni con el cursor encima.
