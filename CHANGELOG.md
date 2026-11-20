@@ -1,5 +1,15 @@
 # Changelog
 
+## 1.2.1795187255 - 2026-11-20
+
+### Tablas
+
+- **Borrado por selección**: cada cabecera tiene una `×` para eliminar esa
+  columna y cada fila tiene una `×` para eliminar esa fila. Solo se eliminan los
+  datos de la columna o fila elegida, manteniendo el resto intacto.
+- La barra inferior conserva `+ Fila` y `+ Columna`; ya no borra la última
+  columna o fila sin indicar cuál.
+
 ## 1.2.1795185312 - 2026-11-20
 
 ### Formato del documento

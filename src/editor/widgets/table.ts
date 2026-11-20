@@ -132,11 +132,43 @@ export class TableWidget extends WidgetType {
       });
     };
 
+    const deleteRow = (rowIndex: number): void => {
+      const header = this.table.header.map((cell) => cell.text);
+      const rows = this.table.rows.map((row) => row.map((cell) => cell.text));
+      rows.splice(rowIndex, 1);
+      const text = serializeTable(header, rows, this.table.alignments);
+      view.dispatch({ changes: { from: this.table.from, to: this.table.to, insert: text } });
+    };
+
+    const deleteColumn = (column: number): void => {
+      if (columns <= 1) {
+        return;
+      }
+      const header = this.table.header.map((cell) => cell.text);
+      const rows = this.table.rows.map((row) => row.map((cell) => cell.text));
+      header.splice(column, 1);
+      for (const row of rows) {
+        row.splice(column, 1);
+      }
+      const alignments = [...this.table.alignments];
+      alignments.splice(column, 1);
+      const text = serializeTable(header, rows, alignments);
+      view.dispatch({ changes: { from: this.table.from, to: this.table.to, insert: text } });
+      if (widths.length > 0) {
+        setTableWidths(
+          view,
+          this.index,
+          widths.filter((_, index) => index !== column),
+        );
+      }
+    };
+
     const buildCell = (
       tag: "th" | "td",
       cell: CellData,
       column: number,
       header: boolean,
+      rowIndex?: number,
     ): HTMLElement => {
       const element = document.createElement(tag);
       element.className = alignmentClass(this.table.alignments[column] ?? "default");
@@ -186,6 +218,38 @@ export class TableWidget extends WidgetType {
       element.addEventListener("mousedown", (event) => {
         event.stopPropagation();
       });
+
+      if (header && columns > 1) {
+        const remove = document.createElement("button");
+        remove.type = "button";
+        remove.className = "cm-md-table-delete-col";
+        remove.title = "Eliminar esta columna";
+        remove.setAttribute("aria-label", "Eliminar esta columna");
+        remove.textContent = "×";
+        remove.addEventListener("mousedown", (event) => event.stopPropagation());
+        remove.addEventListener("click", (event) => {
+          event.preventDefault();
+          event.stopPropagation();
+          deleteColumn(column);
+        });
+        element.append(remove);
+      }
+
+      if (!header && rowIndex !== undefined && column === 0) {
+        const remove = document.createElement("button");
+        remove.type = "button";
+        remove.className = "cm-md-table-delete-row";
+        remove.title = "Eliminar esta fila";
+        remove.setAttribute("aria-label", "Eliminar esta fila");
+        remove.textContent = "×";
+        remove.addEventListener("mousedown", (event) => event.stopPropagation());
+        remove.addEventListener("click", (event) => {
+          event.preventDefault();
+          event.stopPropagation();
+          deleteRow(rowIndex);
+        });
+        element.append(remove);
+      }
 
       return element;
     };
@@ -246,10 +310,10 @@ export class TableWidget extends WidgetType {
     table.append(head);
 
     const body = document.createElement("tbody");
-    for (const row of this.table.rows) {
+    for (const [rowIndex, row] of this.table.rows.entries()) {
       const tr = document.createElement("tr");
       row.forEach((cell, column) => {
-        tr.append(buildCell("td", cell, column, false));
+        tr.append(buildCell("td", cell, column, false, rowIndex));
       });
       body.append(tr);
     }
@@ -272,30 +336,6 @@ export class TableWidget extends WidgetType {
       view.dispatch({ changes: { from: this.table.from, to: this.table.to, insert: text } });
       if (widths.length > 0) {
         setTableWidths(view, this.index, [...widths, 160]);
-      }
-    };
-
-    const removeRow = (): void => {
-      const last = this.table.rowLines.at(-1);
-      if (last === undefined) {
-        return;
-      }
-      const line = view.state.doc.line(last);
-      view.dispatch({
-        changes: { from: line.from > 0 ? line.from - 1 : line.from, to: line.to },
-      });
-    };
-
-    const removeColumn = (): void => {
-      if (columns <= 1) {
-        return;
-      }
-      const header = this.table.header.map((cell) => cell.text).slice(0, -1);
-      const rows = this.table.rows.map((row) => row.map((cell) => cell.text).slice(0, -1));
-      const text = serializeTable(header, rows, this.table.alignments.slice(0, -1));
-      view.dispatch({ changes: { from: this.table.from, to: this.table.to, insert: text } });
-      if (widths.length > 0) {
-        setTableWidths(view, this.index, widths.slice(0, -1));
       }
     };
 
@@ -323,8 +363,6 @@ export class TableWidget extends WidgetType {
 
     addButton("+ Fila", "Añadir una fila al final", addRow);
     addButton("+ Columna", "Añadir una columna a la derecha", addColumn);
-    addButton("− Fila", "Eliminar la última fila", removeRow, this.table.rows.length === 0);
-    addButton("− Columna", "Eliminar la última columna", removeColumn, columns <= 1);
 
     wrap.append(table);
     if (editable) {

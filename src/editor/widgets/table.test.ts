@@ -14,9 +14,9 @@ import { TableWidget } from "./table";
 
 const DOC = "| A | B |\n|---|---|\n| 1 | 2 |\n\ntexto";
 
-function build(readOnly = false): { state: EditorState; table: TableData } {
+function build(readOnly = false, document = DOC): { state: EditorState; table: TableData } {
   const state = EditorState.create({
-    doc: DOC,
+    doc: document,
     extensions: [markdown({ base: markdownLanguage }), EditorState.readOnly.of(readOnly)],
   });
   const tree = ensureSyntaxTree(state, state.doc.length);
@@ -128,27 +128,50 @@ describe("widget de tabla", () => {
     expect(added).toContain("Columna");
     expect(added.split("\n")[0].split("|")).toHaveLength(5);
 
-    button("− Fila")?.click();
-    const lastRow = state.doc.line(table.rowLines.at(-1) ?? table.separatorLine);
-    expect(changes[2]).toMatchObject({ from: lastRow.from - 1, to: lastRow.to });
-
-    button("− Columna")?.click();
-    const removed = (changes[3] as { insert: string }).insert;
-    expect(removed).not.toContain("Columna");
-    expect(removed.split("\n")[0].split("|")).toHaveLength(3);
-
     element.remove();
   });
 
-  it("deshabilita quitar fila cuando no hay filas de datos", () => {
-    const { state, table } = build();
-    const onlyHeader: TableData = { ...table, rows: [], rowLines: [] };
+  it("elimina solo la columna cuyo título se pulsa", () => {
+    const { state, table } = build(false, "| A | B | C |\n|---|---|---|\n| 1 | 2 | 3 |\n\ntexto");
+    const { view, changes } = fakeView(state);
+    const element = new TableWidget(table, "tabla", 0).toDOM(view);
+
+    const buttons = element.querySelectorAll<HTMLButtonElement>(".cm-md-table-delete-col");
+    expect(buttons).toHaveLength(3);
+    buttons[1].click();
+
+    const insert = (changes[0] as { insert: string }).insert;
+    expect(insert).toContain("A");
+    expect(insert).toContain("C");
+    expect(insert).not.toContain("B");
+    expect(insert).toContain("1");
+    expect(insert).toContain("3");
+    expect(insert).not.toContain("2");
+    expect(insert.split("\n")[0].split("|")).toHaveLength(4);
+  });
+
+  it("elimina solo la fila cuyo botón se pulsa", () => {
+    const { state, table } = build(false, "| A | B |\n|---|---|\n| 1 | 2 |\n| 3 | 4 |\n\ntexto");
+    const { view, changes } = fakeView(state);
+    const element = new TableWidget(table, "tabla", 0).toDOM(view);
+
+    const buttons = element.querySelectorAll<HTMLButtonElement>(".cm-md-table-delete-row");
+    expect(buttons).toHaveLength(2);
+    buttons[0].click();
+
+    const insert = (changes[0] as { insert: string }).insert;
+    expect(insert).not.toContain("1");
+    expect(insert).not.toContain("2");
+    expect(insert).toContain("3");
+    expect(insert).toContain("4");
+    expect(insert.split("\n")).toHaveLength(3);
+  });
+
+  it("no ofrece borrar la última columna", () => {
+    const { state, table } = build(false, "| A |\n|---|\n| 1 |\n\ntexto");
     const { view } = fakeView(state);
-    const element = new TableWidget(onlyHeader, "tabla", 0).toDOM(view);
-    const button = Array.from(element.querySelectorAll<HTMLButtonElement>("button")).find((entry) =>
-      entry.textContent?.includes("− Fila"),
-    );
-    expect(button?.disabled).toBe(true);
+    const element = new TableWidget(table, "tabla", 0).toDOM(view);
+    expect(element.querySelectorAll(".cm-md-table-delete-col")).toHaveLength(0);
   });
 
   it("no muestra la barra de acciones en solo lectura", () => {
@@ -156,6 +179,8 @@ describe("widget de tabla", () => {
     const { view } = fakeView(state);
     const element = new TableWidget(table, "tabla", 0).toDOM(view);
     expect(element.querySelector(".cm-md-table-toolbar")).toBeNull();
+    expect(element.querySelectorAll(".cm-md-table-delete-col")).toHaveLength(0);
+    expect(element.querySelectorAll(".cm-md-table-delete-row")).toHaveLength(0);
   });
 
   it("no es editable en solo lectura", () => {

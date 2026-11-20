@@ -838,7 +838,45 @@ body.resizing {
 }
 
 .cm-md-table th {
-  padding-right: 18px;
+  padding-right: 30px;
+}
+
+.cm-md-table td:first-child {
+  padding-left: 22px;
+}
+
+.cm-md-table-delete-col,
+.cm-md-table-delete-row {
+  position: absolute;
+  top: 2px;
+  display: grid;
+  place-items: center;
+  width: 16px;
+  height: 16px;
+  padding: 0;
+  border: 0;
+  border-radius: 4px;
+  background: transparent;
+  color: var(--murk-muted);
+  font-size: 13px;
+  line-height: 1;
+  opacity: 0.45;
+  cursor: pointer;
+}
+
+.cm-md-table-delete-col {
+  right: 10px;
+}
+
+.cm-md-table-delete-row {
+  left: 2px;
+}
+
+.cm-md-table-delete-col:hover,
+.cm-md-table-delete-row:hover {
+  background: var(--murk-hover);
+  color: var(--murk-danger);
+  opacity: 1;
 }
 
 .cm-md-table [contenteditable="true"] {
