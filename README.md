@@ -104,5 +104,3 @@ texto completo y `NOTICE.md` para las licencias de terceros.
 **Rodrigo Quintanar** — creador y mantenedor
 [djperseo@outlook.es](mailto:djperseo@outlook.es)
 
-> Murk es un proyecto independiente. No está afiliado, patrocinado ni
-> respaldado por Typora ni por sus autores.
