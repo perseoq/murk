@@ -1,7 +1,7 @@
 {
   "name": "murk",
   "private": true,
-  "version": "1.2.1795178073",
+  "version": "1.2.1795180585",
   "description": "Editor de Markdown con preview en vivo (GPL-3.0-or-later)",
   "author": "Rodrigo Quintanar <djperseo@outlook.es>",
   "license": "GPL-3.0-or-later",
@@ -32,7 +32,8 @@
     "@tauri-apps/plugin-updater": "^2.14.1",
     "dompurify": "^3.4.18",
     "katex": "^0.19.1",
-    "mermaid": "^12.3.0"
+    "mermaid": "^12.3.0",
+    "yaml": "^2.9.1"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",

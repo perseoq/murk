@@ -185,6 +185,27 @@ fn embed_images(html: &str, base: &Path) -> String {
         .into_owned()
 }
 
+/// Quita un bloque YAML inicial del documento antes de exportarlo.
+fn strip_frontmatter(content: &str) -> &str {
+    let content = content.strip_prefix('\u{feff}').unwrap_or(content);
+    let mut offset = 0usize;
+    let mut first = true;
+    for line in content.split_inclusive('\n') {
+        let text = line.trim_end_matches(['\n', '\r']);
+        if first {
+            if text.trim() != "---" {
+                return content;
+            }
+            first = false;
+        } else if text.trim() == "---" {
+            let rest = &content[offset + line.len()..];
+            return rest.strip_prefix('\n').unwrap_or(rest);
+        }
+        offset += line.len();
+    }
+    content
+}
+
 pub fn render_html(request: &ExportRequest) -> String {
     let mut options = comrak::Options::default();
     options.extension.table = true;
@@ -194,7 +215,7 @@ pub fn render_html(request: &ExportRequest) -> String {
     options.extension.footnotes = true;
     options.render.github_pre_lang = true;
 
-    let body = comrak::markdown_to_html(&request.content, &options);
+    let body = comrak::markdown_to_html(strip_frontmatter(&request.content), &options);
     let body = if request.embed_images {
         embed_images(&body, &source_directory(request.source_path.as_deref()))
     } else {
@@ -261,7 +282,7 @@ fn run_pandoc(
     let base = source_directory(request.source_path.as_deref());
     let temporary = tempfile::tempdir()?;
     let input = temporary.path().join("documento.md");
-    fs::write(&input, &request.content)?;
+    fs::write(&input, strip_frontmatter(&request.content))?;
 
     let target = match format {
         "docx" => "docx",
@@ -444,6 +465,25 @@ mod tests {
             title: "Prueba".to_string(),
             embed_images: true,
         }
+    }
+
+    #[test]
+    fn strips_yaml_frontmatter_from_exports() {
+        let content = "---\ntitle: Doc\nmurk:\n  tableWidths:\n    '0':\n      - 120\n      - 180\n---\n\n# Título\n";
+        assert_eq!(strip_frontmatter(content), "# Título\n");
+        assert_eq!(strip_frontmatter("# Sin metadatos\n"), "# Sin metadatos\n");
+        assert_eq!(strip_frontmatter("---\nsin cierre\n"), "---\nsin cierre\n");
+
+        let html = render_html(&ExportRequest {
+            source_path: None,
+            output_path: "/tmp/x.html".to_string(),
+            format: "html".to_string(),
+            content: content.to_string(),
+            title: "Doc".to_string(),
+            embed_images: false,
+        });
+        assert!(html.contains("<h1>Título</h1>"));
+        assert!(!html.contains("tableWidths"));
     }
 
     #[test]

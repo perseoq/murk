@@ -8,8 +8,10 @@ import type { SyntaxNode } from "@lezer/common";
 
 import { MathWidget } from "./widgets/math";
 import { MermaidWidget, isDarkTheme } from "./widgets/mermaid";
+import { FrontmatterWidget } from "./widgets/frontmatter";
 import { TableWidget } from "./widgets/table";
 import { tableFromNode } from "./table";
+import { findFrontmatter, tableWidthsFromFrontmatter } from "./frontmatter";
 
 interface BlockWidgetResult {
   decorations: DecorationSet;
@@ -51,9 +53,26 @@ export function buildBlockDecorations(state: EditorState): BlockWidgetResult {
   const touches = (from: number, to: number): boolean =>
     !readOnly && state.selection.ranges.some((range) => range.from <= to && range.to >= from);
 
+  const frontmatter = findFrontmatter(state);
+  if (frontmatter && !touches(frontmatter.from, frontmatter.to)) {
+    const key = `fm:${frontmatter.from}:${frontmatter.to}:${doc.sliceString(frontmatter.from, frontmatter.to)}`;
+    ranges.push(
+      Decoration.replace({
+        block: true,
+        widget: new FrontmatterWidget(frontmatter, key),
+      }).range(frontmatter.from, frontmatter.to),
+    );
+    atomic.push(Decoration.replace({}).range(frontmatter.from, frontmatter.to));
+  }
+
+  const tableWidths = tableWidthsFromFrontmatter(frontmatter);
+  let tableIndex = 0;
+
   syntaxTree(state).iterate({
     enter: (node) => {
       if (node.name === "Table") {
+        const index = tableIndex;
+        tableIndex += 1;
         if (touches(node.from, node.to) || isNestedBlock(state, node.from)) {
           return;
         }
@@ -67,7 +86,7 @@ export function buildBlockDecorations(state: EditorState): BlockWidgetResult {
         ranges.push(
           Decoration.replace({
             block: true,
-            widget: new TableWidget(table, key),
+            widget: new TableWidget(table, key, index, tableWidths[String(index)] ?? []),
           }).range(node.from, node.to),
         );
         atomic.push(Decoration.replace({}).range(node.from, node.to));

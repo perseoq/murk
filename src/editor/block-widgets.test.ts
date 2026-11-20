@@ -3,13 +3,17 @@
 
 import { markdown, markdownLanguage } from "@codemirror/lang-markdown";
 import { EditorState } from "@codemirror/state";
+import type { WidgetType } from "@codemirror/view";
 import { describe, expect, it } from "vitest";
 
 import { buildBlockDecorations } from "./block-widgets";
+import { FrontmatterWidget } from "./widgets/frontmatter";
+import { TableWidget } from "./widgets/table";
 
 interface Collected {
   atomic: number;
   widgets: number;
+  instances: WidgetType[];
 }
 
 function collect(doc: string, cursor = doc.length, readOnly = false): Collected {
@@ -26,13 +30,15 @@ function collect(doc: string, cursor = doc.length, readOnly = false): Collected 
   });
 
   let widgets = 0;
+  const instances: WidgetType[] = [];
   result.decorations.between(0, state.doc.length, (_from, _to, value) => {
     if (value.spec.widget) {
       widgets += 1;
+      instances.push(value.spec.widget as WidgetType);
     }
   });
 
-  return { atomic, widgets };
+  return { atomic, widgets, instances };
 }
 
 describe("widgets de bloque (A5)", () => {
@@ -96,6 +102,27 @@ describe("widgets de bloque (A5)", () => {
     const inside = collect(doc, 3);
     expect(inside.widgets).toBe(0);
     expect(inside.atomic).toBe(0);
+  });
+
+  it("oculta el frontmatter y aplica las anchuras guardadas", () => {
+    const doc =
+      "---\nmurk:\n  tableWidths:\n    '0':\n      - 140\n      - 180\n---\n\n| A | B |\n|---|---|\n| 1 | 2 |\n\ntexto";
+    const result = collect(doc);
+
+    const frontmatter = result.instances.find((widget) => widget instanceof FrontmatterWidget);
+    expect(frontmatter).toBeInstanceOf(FrontmatterWidget);
+
+    const table = result.instances.find((widget) => widget instanceof TableWidget);
+    expect(table).toBeInstanceOf(TableWidget);
+    if (table instanceof TableWidget) {
+      expect(table.widths).toEqual([140, 180]);
+    }
+  });
+
+  it("revela el frontmatter cuando el cursor está dentro", () => {
+    const doc = "---\ntitle: Doc\n---\n\n# Hola";
+    const result = collect(doc, 5);
+    expect(result.instances.some((widget) => widget instanceof FrontmatterWidget)).toBe(false);
   });
 
   it("mantiene la tabla, Mermaid y las fórmulas renderizadas en solo lectura", () => {

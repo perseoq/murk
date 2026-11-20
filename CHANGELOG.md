@@ -1,5 +1,18 @@
 # Changelog
 
+## 1.2.1795180585 - 2026-11-20
+
+### Tablas editables
+
+- Las tablas renderizadas se editan **directamente en la celda**: clic para
+  editar, `Enter` para confirmar, `Escape` para cancelar y `Ctrl+S` guarda el
+  cambio pendiente.
+- **Tiradores en el borde derecho** de cada cabecera para redimensionar las
+  columnas; la tabla pasa a ancho fijo al primer ajuste.
+- Las anchuras se guardan en el frontmatter YAML (`murk.tableWidths`) por índice
+  de tabla. El frontmatter se muestra como una barra compacta en la vista previa
+  y se elimina de las exportaciones HTML, PDF, DOCX, EPUB y LaTeX.
+
 ## 1.2.1795178073 - 2026-11-20
 
 ### Correcciones

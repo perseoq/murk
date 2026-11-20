@@ -13,7 +13,7 @@ Artefactos disponibles en GitHub Releases:
 También existe un `.tar.gz` portable. En Fedora:
 
 ```bash
-sudo dnf install murk-1.2.1795178073.x86_64.rpm
+sudo dnf install murk-1.2.1795180585.x86_64.rpm
 ```
 
 La AppImage se integra sola en el menú al ejecutarla por primera vez: copia su
@@ -51,6 +51,11 @@ Chromium (o `texlive-xetex` con el motor Pandoc).
 ## Tablas
 
 - `Ctrl+Shift+T` inserta una tabla.
+- En la vista previa, **haz clic en una celda para editarla**; `Enter` confirma,
+  `Escape` cancela y `Ctrl+S` guarda el cambio pendiente.
+- **Arrastra el tirador del borde derecho** de una cabecera para cambiar el
+  ancho de esa columna. Las anchuras se guardan en el frontmatter YAML
+  (`murk.tableWidths`).
 - `Tab`/`Shift+Tab` navegan celdas y crean filas al final.
 - `Enter` baja de fila; `Ctrl+Enter` inserta `<br>` en la celda.
 - Menú **Tabla** para insertar/eliminar filas y columnas, alinear y formatear.
