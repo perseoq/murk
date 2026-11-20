@@ -13,7 +13,7 @@ Artefactos disponibles en GitHub Releases:
 También existe un `.tar.gz` portable. En Fedora:
 
 ```bash
-sudo dnf install murk-1.2.1795200487.x86_64.rpm
+sudo dnf install murk-1.2.1795201324.x86_64.rpm
 ```
 
 La AppImage se integra sola en el menú al ejecutarla por primera vez: copia su
@@ -57,6 +57,12 @@ Chromium (o `texlive-xetex` con el motor Pandoc).
   flechas, palomitas, puntos negros/blancos; `a)`, `A)`, `I)`, `I.`, `1.`, `1)`.
 - Ambos estilos se guardan en el frontmatter YAML y se aplican al editor, a las
   exportaciones HTML/PDF y a Word.
+
+## Insertar
+
+El menú **Insertar** añade rápidamente listas con viñetas, numeradas y de
+tareas, citas, bloques de código, tablas, fórmulas en línea o en bloque y una
+regla horizontal.
 
 ## Bloques de código
 

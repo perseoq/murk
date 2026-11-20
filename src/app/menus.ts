@@ -25,6 +25,14 @@ export type ActionId =
   | "edit.find"
   | "edit.findNext"
   | "edit.replace"
+  | "insert.bulletList"
+  | "insert.orderedList"
+  | "insert.taskList"
+  | "insert.blockquote"
+  | "insert.codeBlock"
+  | "insert.math"
+  | "insert.mathBlock"
+  | "insert.hr"
   | "format.font"
   | "format.list"
   | "format.bold"
@@ -127,6 +135,21 @@ export const MENUS: MenuDef[] = [
       { label: "Tachado", action: "format.strikethrough", shortcut: "Alt+Shift+5" },
       { label: "Código en línea", action: "format.code", shortcut: "Ctrl+Shift+`" },
       { label: "Enlace", action: "format.link", shortcut: "Ctrl+K" },
+    ],
+  },
+  {
+    id: "insert",
+    label: "Insertar",
+    items: [
+      { label: "Lista con viñetas", action: "insert.bulletList" },
+      { label: "Lista numerada", action: "insert.orderedList" },
+      { label: "Lista de tareas", action: "insert.taskList" },
+      { label: "Cita", action: "insert.blockquote", separatorBefore: true },
+      { label: "Bloque de código", action: "insert.codeBlock" },
+      { label: "Tabla", action: "table.insert", separatorBefore: true },
+      { label: "Fórmula en línea", action: "insert.math" },
+      { label: "Fórmula en bloque", action: "insert.mathBlock" },
+      { label: "Regla horizontal", action: "insert.hr", separatorBefore: true },
     ],
   },
   {

@@ -463,6 +463,35 @@ describe("Shell · flujo abrir → editar → guardar", () => {
     expect(mocks.editorReadOnly.at(-1)).toBe(false);
   });
 
+  it("incluye el menú Insertar con listas, código y fórmulas", async () => {
+    const root = document.querySelector<HTMLElement>("#app");
+    if (!root) {
+      throw new Error("falta #app");
+    }
+
+    shell = new Shell(root);
+    await shell.boot();
+
+    const insert = root.querySelector<HTMLButtonElement>('[data-menu="insert"]');
+    expect(insert?.textContent).toBe("Insertar");
+    insert?.click();
+
+    const actions = Array.from(root.querySelectorAll<HTMLButtonElement>(".menu-item")).map(
+      (entry) => entry.dataset.action,
+    );
+    expect(actions).toEqual([
+      "insert.bulletList",
+      "insert.orderedList",
+      "insert.taskList",
+      "insert.blockquote",
+      "insert.codeBlock",
+      "table.insert",
+      "insert.math",
+      "insert.mathBlock",
+      "insert.hr",
+    ]);
+  });
+
   it("abre el modal de repositorio y guarda la configuración", async () => {
     const root = document.querySelector<HTMLElement>("#app");
     if (!root) {

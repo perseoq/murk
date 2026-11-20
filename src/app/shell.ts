@@ -730,6 +730,30 @@ export class Shell {
       case "edit.replace":
         this.editCommand("replace");
         break;
+      case "insert.bulletList":
+        this.prefixSelectedLines("- ");
+        break;
+      case "insert.orderedList":
+        this.prefixSelectedLines((index) => `${index + 1}. `);
+        break;
+      case "insert.taskList":
+        this.prefixSelectedLines("- [ ] ");
+        break;
+      case "insert.blockquote":
+        this.prefixSelectedLines("> ");
+        break;
+      case "insert.codeBlock":
+        this.insertCodeBlock();
+        break;
+      case "insert.math":
+        this.insertMath(false);
+        break;
+      case "insert.mathBlock":
+        this.insertMath(true);
+        break;
+      case "insert.hr":
+        this.insertHorizontalRule();
+        break;
       case "format.font":
         this.showFontDialog();
         break;
@@ -2992,6 +3016,96 @@ export class Shell {
         ],
       });
     });
+  }
+
+  private prefixSelectedLines(prefix: string | ((index: number) => string)): void {
+    const view = this.editor.getView();
+    const state = view.state;
+    const selection = state.selection.main;
+    const start = state.doc.lineAt(selection.from).number;
+    const end = state.doc.lineAt(selection.to).number;
+    const changes: Array<{ from: number; insert: string }> = [];
+
+    for (let number = start; number <= end; number += 1) {
+      const line = state.doc.line(number);
+      const value = typeof prefix === "string" ? prefix : prefix(number - start);
+      changes.push({ from: line.from, insert: value });
+    }
+
+    view.dispatch({ changes });
+    view.focus();
+  }
+
+  private insertCodeBlock(): void {
+    const view = this.editor.getView();
+    const state = view.state;
+    const selection = state.selection.main;
+    const selected = state.sliceDoc(selection.from, selection.to);
+
+    if (selected) {
+      const text = `\`\`\`\n${selected}\n\`\`\``;
+      view.dispatch({
+        changes: { from: selection.from, to: selection.to, insert: text },
+        selection: { anchor: selection.from + text.length },
+        scrollIntoView: true,
+      });
+    } else {
+      const text = "```\n\n```";
+      view.dispatch({
+        changes: { from: selection.from, to: selection.to, insert: text },
+        selection: { anchor: selection.from + 4 },
+        scrollIntoView: true,
+      });
+    }
+    view.focus();
+  }
+
+  private insertMath(block: boolean): void {
+    const view = this.editor.getView();
+    const state = view.state;
+    const selection = state.selection.main;
+    const selected = state.sliceDoc(selection.from, selection.to);
+
+    if (block) {
+      const text = selected ? `$$\n${selected}\n$$` : "$$\n\n$$";
+      view.dispatch({
+        changes: { from: selection.from, to: selection.to, insert: text },
+        selection: { anchor: selected ? selection.from + text.length : selection.from + 3 },
+        scrollIntoView: true,
+      });
+    } else if (selected) {
+      const text = `$${selected}$`;
+      view.dispatch({
+        changes: { from: selection.from, to: selection.to, insert: text },
+        selection: { anchor: selection.from + text.length },
+        scrollIntoView: true,
+      });
+    } else {
+      view.dispatch({
+        changes: { from: selection.from, to: selection.to, insert: "$$" },
+        selection: { anchor: selection.from + 1 },
+        scrollIntoView: true,
+      });
+    }
+    view.focus();
+  }
+
+  private insertHorizontalRule(): void {
+    const view = this.editor.getView();
+    const state = view.state;
+    const selection = state.selection.main;
+    const before =
+      selection.from > 0 && state.doc.sliceString(selection.from - 1, selection.from) !== "\n"
+        ? "\n\n"
+        : "";
+    const text = `${before}---\n`;
+
+    view.dispatch({
+      changes: { from: selection.from, to: selection.to, insert: text },
+      selection: { anchor: selection.from + text.length },
+      scrollIntoView: true,
+    });
+    view.focus();
   }
 
   private showFontDialog(): void {

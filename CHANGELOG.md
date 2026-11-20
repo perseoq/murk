@@ -1,5 +1,13 @@
 # Changelog
 
+## 1.2.1795201324 - 2026-11-20
+
+### Insertar
+
+- Nuevo menú **Insertar** con listas con viñetas, numeradas y de tareas, cita,
+  bloque de código, tabla, fórmula en línea, fórmula en bloque y regla
+  horizontal. Las acciones de lista y cita prefijan las líneas seleccionadas.
+
 ## 1.2.1795200487 - 2026-11-20
 
 ### Correcciones
