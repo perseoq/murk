@@ -1,5 +1,18 @@
 # Changelog
 
+## 1.2.1795146253 - 2026-11-19
+
+### Correcciones
+
+- Abrir un archivo con la aplicación ya en marcha vuelve a funcionar de forma
+  fiable: el evento de segunda instancia se registra antes de restaurar la
+  sesión y las rutas que llegan durante el arranque se encolan.
+- Se aceptan rutas y URIs `file://` (incluidos `localhost` y `%20`), como las
+  que envían algunos gestores de archivos y lanzadores del escritorio.
+- La ventana se restaura, muestra y enfoca al abrir un archivo desde fuera.
+- El diálogo de apertura acepta tanto una ruta como una lista de rutas.
+- El editor fuerza una nueva medición y repintado tras cambiar de documento.
+
 ## 1.2.1795142574 - 2026-11-19
 
 ### Correcciones

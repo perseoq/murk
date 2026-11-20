@@ -10,9 +10,9 @@ npm run tauri build
 Artefactos en `src-tauri/target/release/bundle/`:
 
 ```text
-deb/Murk_1.2.1795142574_amd64.deb
-rpm/Murk-1.2.1795142574-1.x86_64.rpm
-appimage/Murk_1.2.1795142574_amd64.AppImage
+deb/Murk_1.2.1795146253_amd64.deb
+rpm/Murk-1.2.1795146253-1.x86_64.rpm
+appimage/Murk_1.2.1795146253_amd64.AppImage
 ```
 
 Requiere las dependencias de Tauri y, para DOCX/EPUB, `pandoc`.

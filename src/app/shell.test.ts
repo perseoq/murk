@@ -94,6 +94,7 @@ vi.mock("../editor/editor", () => {
     setSpellcheck(): void {}
     setKeybindings(): void {}
     refresh(): void {}
+    requestMeasure(): void {}
     scrollToRatio(): void {}
     invalidate(): void {}
     forget(): void {}

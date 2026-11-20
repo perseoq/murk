@@ -150,6 +150,8 @@ export class Shell {
   private lastTitle = "";
   private unlistenFileChanged: (() => void) | null = null;
   private unlistenOpenFiles: (() => void) | null = null;
+  private booted = false;
+  private readonly pendingOpenPaths: string[] = [];
   private readonly localWrites = new Map<string, number>();
   private readonly watchTimers = new Map<string, number>();
   private conflictBusy = false;
@@ -192,25 +194,34 @@ export class Shell {
     await this.loadState();
     this.applyRestoredWorkspaceContext();
     this.mount();
-    await this.restoreSession();
     this.bindShellEvents();
     this.bindWindowClose();
+
+    // El listener de apertura se registra antes de restaurar la sesión: si el
+    // usuario abre un archivo mientras la app arranca, la ruta se encola en
+    // lugar de perderse.
+    this.unlistenOpenFiles = await host
+      .listenOpenFiles((paths) => this.queueOpenPaths(paths))
+      .catch(() => null);
 
     try {
       this.unlistenFileChanged = await host.listenFileChanged((event) => {
         this.queueFileEvent(event);
       });
-      this.unlistenOpenFiles = await host.listenOpenFiles((paths) => {
-        for (const path of paths) {
-          void this.openPath(path);
-        }
-      });
     } catch (error) {
       console.warn("No se pudo escuchar eventos de archivos", error);
     }
 
+    await this.restoreSession();
+
     const startupFiles = await host.startupFiles().catch(() => []);
     for (const path of startupFiles) {
+      await this.openPath(path);
+    }
+
+    this.booted = true;
+    const pending = this.pendingOpenPaths.splice(0);
+    for (const path of pending) {
       await this.openPath(path);
     }
 
@@ -997,6 +1008,16 @@ export class Shell {
     }
   }
 
+  private queueOpenPaths(paths: string[]): void {
+    if (!this.booted) {
+      this.pendingOpenPaths.push(...paths);
+      return;
+    }
+    for (const path of paths) {
+      void this.openPath(path);
+    }
+  }
+
   private async openPath(path: string): Promise<boolean> {
     try {
       const document = await host.fileOpen(path);
@@ -1412,6 +1433,7 @@ export class Shell {
     this.editor.activate(tab.id, tab.content, tab.cursor, tab.readOnly || this.viewReadOnly);
     this.editor.setSourceMode(this.viewMode === "code" && !this.viewReadOnly);
     this.editor.scrollToRatio(tab.scroll);
+    this.editor.requestMeasure();
   }
 
   /** Reemplaza el texto del documento activo mediante una transacción del editor. */

@@ -91,6 +91,31 @@ fn appimage_desktop_entry(appimage: &str) -> String {
 #[cfg(not(target_os = "linux"))]
 pub fn integrate_appimage() {}
 
+fn local_path(argument: &str) -> Option<PathBuf> {
+    let Some(rest) = argument.strip_prefix("file://") else {
+        return Some(PathBuf::from(argument));
+    };
+    let rest = rest.strip_prefix("localhost").unwrap_or(rest);
+    percent_decode(rest).map(PathBuf::from)
+}
+
+fn percent_decode(input: &str) -> Option<String> {
+    let bytes = input.as_bytes();
+    let mut output = Vec::with_capacity(bytes.len());
+    let mut index = 0;
+    while index < bytes.len() {
+        if bytes[index] == b'%' {
+            let hex = std::str::from_utf8(bytes.get(index + 1..index + 3)?).ok()?;
+            output.push(u8::from_str_radix(hex, 16).ok()?);
+            index += 3;
+        } else {
+            output.push(bytes[index]);
+            index += 1;
+        }
+    }
+    String::from_utf8(output).ok()
+}
+
 /// Extrae rutas de archivo de los argumentos, resolviendo relativas contra `cwd`.
 pub fn paths_from_args(args: &[String], cwd: &Path) -> Vec<String> {
     let mut paths = Vec::new();
@@ -116,7 +141,9 @@ pub fn paths_from_args(args: &[String], cwd: &Path) -> Vec<String> {
             continue;
         }
 
-        let candidate = PathBuf::from(argument);
+        let Some(candidate) = local_path(argument) else {
+            continue;
+        };
         let resolved = if candidate.is_absolute() {
             candidate
         } else {
@@ -193,6 +220,24 @@ mod tests {
 
         let args = vec![file.to_string_lossy().into_owned()];
         let paths = paths_from_args(&args, Path::new("/tmp"));
+        assert_eq!(paths, vec![file.to_string_lossy().into_owned()]);
+    }
+
+    #[test]
+    fn accepts_file_uris_with_percent_encoding() {
+        let directory = tempfile::tempdir().expect("tempdir");
+        let file = directory.path().join("nota con espacios.md");
+        std::fs::write(&file, "x").expect("archivo");
+
+        let uri = format!("file://{}", file.to_string_lossy().replace(' ', "%20"));
+        let paths = paths_from_args(&[uri], Path::new("/tmp"));
+        assert_eq!(paths, vec![file.to_string_lossy().into_owned()]);
+
+        let localhost = format!(
+            "file://localhost{}",
+            file.to_string_lossy().replace(' ', "%20")
+        );
+        let paths = paths_from_args(&[localhost], Path::new("/tmp"));
         assert_eq!(paths, vec![file.to_string_lossy().into_owned()]);
     }
 

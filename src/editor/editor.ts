@@ -364,6 +364,11 @@ export class MurkEditor {
     });
   }
 
+  /** Fuerza una nueva medición y repintado tras cambiar de documento. */
+  requestMeasure(): void {
+    this.view.requestMeasure();
+  }
+
   invalidate(tabId: string): void {
     this.states.delete(tabId);
   }

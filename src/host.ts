@@ -259,6 +259,9 @@ export const host = {
       directory: false,
       filters: FILE_FILTERS,
     });
+    if (Array.isArray(result)) {
+      return result[0] ?? null;
+    }
     return typeof result === "string" ? result : null;
   },
 
