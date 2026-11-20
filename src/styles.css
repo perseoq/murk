@@ -1143,6 +1143,18 @@ body.resizing {
   gap: 8px;
 }
 
+.repo-options {
+  padding: 10px 12px;
+  border: 1px solid var(--murk-border);
+  border-radius: 8px;
+}
+
+.repo-options legend {
+  padding: 0 6px;
+  color: var(--murk-muted);
+  font-size: 12px;
+}
+
 .field-inline input {
   width: 16px;
   height: 16px;

@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 // Copyright (C) 2026 Murk contributors
 
-import type { Settings, ThemeMode } from "../host";
+import type { RepositoryConfig, RepositoryStrategy, Settings, ThemeMode } from "../host";
 
 export const DEFAULT_SETTINGS: Settings = {
   theme: "system",
@@ -17,6 +17,50 @@ export const DEFAULT_SETTINGS: Settings = {
   spellcheckLanguage: "",
   keybindings: {},
 };
+
+export const DEFAULT_REPOSITORY: RepositoryConfig = {
+  url: "",
+  branch: "main",
+  path: "",
+  strategy: "merge",
+  pullBeforePush: true,
+  createBranch: false,
+  autoPush: false,
+};
+
+function normalizeStrategy(value: unknown): RepositoryStrategy {
+  return value === "merge" || value === "rebase" || value === "none" ? value : "merge";
+}
+
+export interface RepositoryInput {
+  url?: unknown;
+  branch?: unknown;
+  path?: unknown;
+  strategy?: unknown;
+  pullBeforePush?: unknown;
+  createBranch?: unknown;
+  autoPush?: unknown;
+}
+
+/** Normaliza la configuración del repositorio tal como la valida el backend. */
+export function normalizeRepository(input: RepositoryInput | null): RepositoryConfig {
+  const path =
+    typeof input?.path === "string"
+      ? input.path
+          .trim()
+          .replace(/^\.?\/+/, "")
+          .replace(/\/+$/, "")
+      : "";
+  return {
+    url: typeof input?.url === "string" ? input.url.trim() : "",
+    branch: (typeof input?.branch === "string" ? input.branch.trim() : "") || "main",
+    path,
+    strategy: normalizeStrategy(input?.strategy),
+    pullBeforePush: input?.pullBeforePush !== false,
+    createBranch: input?.createBranch === true,
+    autoPush: input?.autoPush === true,
+  };
+}
 
 export function normalizeTheme(value: unknown): ThemeMode {
   return value === "light" || value === "dark" || value === "system" ? value : "system";

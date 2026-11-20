@@ -124,6 +124,25 @@ export interface UpdateInfo {
   body?: string;
 }
 
+export type RepositoryStrategy = "merge" | "rebase" | "none";
+
+export interface RepositoryConfig {
+  url: string;
+  branch: string;
+  path: string;
+  strategy: RepositoryStrategy;
+  pullBeforePush: boolean;
+  createBranch: boolean;
+  autoPush: boolean;
+}
+
+export interface PushResult {
+  branch: string;
+  remoteUrl: string;
+  commit: string | null;
+  files: string[];
+}
+
 export interface SessionFile {
   path: string;
   cursor: number;
@@ -419,6 +438,18 @@ export const host = {
 
   exportDocument(request: ExportRequest): Promise<ExportResult> {
     return call<ExportResult>("export_document", { request });
+  },
+
+  repositoryConfigLoad(): Promise<RepositoryConfig> {
+    return call<RepositoryConfig>("repository_config_load");
+  },
+
+  repositoryConfigSave(config: RepositoryConfig): Promise<RepositoryConfig> {
+    return call<RepositoryConfig>("repository_config_save", { config });
+  },
+
+  repositoryPush(sourcePaths: string[]): Promise<PushResult> {
+    return call<PushResult>("repository_push", { request: { sourcePaths } });
   },
 
   async checkForUpdates(): Promise<UpdateInfo | null> {

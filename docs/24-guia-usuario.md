@@ -79,6 +79,29 @@ murk --export docx notas.md
 - `F1` muestra todos los atajos.
 - Toda la interfaz es navegable por teclado; los modales atrapan el foco.
 
+## Repositorio y autopush
+
+**Archivo → Repositorio…** abre un diálogo para configurar:
+
+- URL del remoto (`https://…`, `ssh://…` o `git@host:repo.git`).
+- Rama de destino (`main`, `master`, etc.).
+- Ruta relativa dentro del repositorio (vacía = raíz).
+- Integración antes del push: **merge**, **rebase** o **sin pull**.
+- Opciones: hacer pull antes del push y crear la rama si no existe.
+
+La configuración se guarda en `~/.murk/config.json`. Murk clona el repositorio
+en `~/.murk/repos/<nombre-del-repo>` y copia allí los documentos publicados.
+
+- **Archivo → Push** guarda el documento activo, hace commit y ejecuta
+  `git push origin <rama>`.
+- **Archivo → Autopush** (marcable) repite esa operación cada intervalo tras
+  el autoguardado, sin intervención manual.
+
+Los mensajes de commit son `new: <timestamp>` cuando el archivo no estaba
+versionado y `update: <timestamp>` cuando se modifica. Requiere `git` y
+credenciales configuradas (clave SSH o token HTTPS); los errores de red o
+autenticación se muestran como aviso.
+
 ## Actualizaciones
 
 **Ayuda → Buscar actualizaciones…** consulta el manifiesto firmado de GitHub

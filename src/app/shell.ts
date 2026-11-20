@@ -10,6 +10,7 @@ import type {
   OpenedFile,
   RecentEntry,
   RecoverySnapshot,
+  RepositoryConfig,
   SaveOptions,
   SearchHit,
   Settings,
@@ -23,9 +24,11 @@ import type { TableAction } from "../editor/table";
 import { setImageDocumentPath, clearImageCache } from "../editor/widgets/image";
 import { parseOutline } from "./outline";
 import {
+  DEFAULT_REPOSITORY,
   DEFAULT_SETTINGS,
   applySettings,
   normalizeKeybindings,
+  normalizeRepository,
   normalizeSettings,
 } from "./settings";
 import { shortcutFor, MENUS, type ActionId, type MenuDef } from "./menus";
@@ -168,8 +171,11 @@ export class Shell {
   private statusTimer: ReturnType<typeof setTimeout> | null = null;
   private previousFocus: HTMLElement | null = null;
   private autosaveHandle: number | null = null;
+  private autoPushHandle: number | null = null;
   private recoveryHandle: number | null = null;
   private autosaveRunning = false;
+  private pushRunning = false;
+  private repoConfig: RepositoryConfig = { ...DEFAULT_REPOSITORY };
   private readonly snapshotTimers = new Map<string, number>();
   private readonly lastSnapshots = new Map<string, string>();
   private readonly handleSystemTheme = (): void => {
@@ -211,6 +217,7 @@ export class Shell {
     this.applySidebarLayout();
     this.renderSidebar();
     this.configureAutosave();
+    this.configureAutoPush();
     this.recoveryHandle = window.setInterval(() => {
       void this.snapshotDirty("interval");
     }, 30_000);
@@ -250,6 +257,10 @@ export class Shell {
     if (this.autosaveHandle !== null) {
       clearInterval(this.autosaveHandle);
       this.autosaveHandle = null;
+    }
+    if (this.autoPushHandle !== null) {
+      clearInterval(this.autoPushHandle);
+      this.autoPushHandle = null;
     }
     if (this.recoveryHandle !== null) {
       clearInterval(this.recoveryHandle);
@@ -291,6 +302,13 @@ export class Shell {
     } catch (error) {
       this.restoredSession = null;
       console.warn("No se pudo cargar la sesión", error);
+    }
+
+    try {
+      this.repoConfig = normalizeRepository(await host.repositoryConfigLoad());
+    } catch (error) {
+      this.repoConfig = { ...DEFAULT_REPOSITORY };
+      console.warn("No se pudo cargar la configuración del repositorio", error);
     }
 
     applySettings(this.settings);
@@ -624,14 +642,23 @@ export class Shell {
       case "file.saveAs":
         await this.saveActive(true);
         break;
+      case "file.push":
+        await this.pushActive();
+        break;
       case "file.history":
         await this.showHistory();
         break;
       case "file.export":
         await this.showExport();
         break;
+      case "file.repository":
+        this.showRepository();
+        break;
       case "file.autosave":
         this.toggleAutosave();
+        break;
+      case "file.autopush":
+        this.toggleAutoPush();
         break;
       case "file.close":
         await this.closeActiveTab();
@@ -1502,6 +1529,8 @@ export class Shell {
     switch (action) {
       case "file.autosave":
         return this.settings.autosave !== "off";
+      case "file.autopush":
+        return this.repoConfig.autoPush;
       default:
         return false;
     }
@@ -1521,6 +1550,231 @@ export class Shell {
         ? `Autoguardado activado (cada ${Math.round(this.settings.autosaveIntervalMs / 1000)} s).`
         : "Autoguardado desactivado.",
     );
+  }
+
+  private toggleAutoPush(): void {
+    if (!this.repoConfig.url) {
+      this.toast("Configura primero Archivo → Repositorio…");
+      this.showRepository();
+      return;
+    }
+
+    const next = { ...this.repoConfig, autoPush: !this.repoConfig.autoPush };
+    this.repoConfig = next;
+    this.configureAutoPush();
+    void host
+      .repositoryConfigSave(next)
+      .then((saved) => {
+        this.repoConfig = normalizeRepository(saved);
+        this.configureAutoPush();
+      })
+      .catch((error: unknown) => {
+        this.toast(`No se pudo guardar el repositorio: ${errorMessage(error)}`);
+      });
+    this.toast(
+      next.autoPush
+        ? `Autopush activado (cada ${Math.round(this.settings.autosaveIntervalMs / 1000)} s).`
+        : "Autopush desactivado.",
+    );
+  }
+
+  private configureAutoPush(): void {
+    if (this.autoPushHandle !== null) {
+      clearInterval(this.autoPushHandle);
+      this.autoPushHandle = null;
+    }
+
+    if (this.repoConfig.autoPush && this.repoConfig.url) {
+      this.autoPushHandle = window.setInterval(() => {
+        void this.autoPushTick();
+      }, this.settings.autosaveIntervalMs);
+    }
+  }
+
+  private async autoPushTick(): Promise<void> {
+    if (this.pushRunning || !this.repoConfig.autoPush || !this.repoConfig.url) {
+      return;
+    }
+
+    const pending = this.workspace.tabs
+      .filter((tab) => tab.dirty && tab.path && !tab.readOnly && !tab.missing)
+      .map((tab) => tab.path as string);
+    if (pending.length === 0) {
+      return;
+    }
+
+    this.pushRunning = true;
+    try {
+      await this.autoSaveDirty();
+      const ready = pending.filter((path) =>
+        this.workspace.tabs.some((tab) => tab.path === path && !tab.dirty),
+      );
+      if (ready.length === 0) {
+        return;
+      }
+      const result = await host.repositoryPush(ready);
+      if (result.commit) {
+        this.toast(`Autopush: ${result.commit}`);
+      }
+    } catch (error) {
+      this.toast(`Autopush: ${errorMessage(error)}`);
+    } finally {
+      this.pushRunning = false;
+    }
+  }
+
+  private async pushActive(): Promise<void> {
+    if (!this.repoConfig.url) {
+      this.toast("Configura la URL del repositorio.");
+      this.showRepository();
+      return;
+    }
+
+    const tab = this.workspace.active;
+    if (!tab) {
+      return;
+    }
+
+    if (!tab.path || tab.dirty) {
+      const saved = await this.saveActive(false);
+      if (!saved || !tab.path) {
+        return;
+      }
+    }
+
+    if (this.pushRunning) {
+      this.toast("Ya hay un push en curso.");
+      return;
+    }
+
+    this.pushRunning = true;
+    this.toast("Haciendo push…");
+    try {
+      const result = await host.repositoryPush([tab.path]);
+      this.toast(
+        result.commit
+          ? `Push completado: ${result.commit}`
+          : `Push completado en ${result.branch} (sin cambios).`,
+      );
+    } catch (error) {
+      this.toast(`Push falló: ${errorMessage(error)}`);
+    } finally {
+      this.pushRunning = false;
+    }
+  }
+
+  private showRepository(): void {
+    const config = this.repoConfig;
+    const form = document.createElement("form");
+    form.className = "settings-form";
+    form.innerHTML = `
+      <label class="field">
+        <span>URL del repositorio</span>
+        <input id="repo-url" type="text" placeholder="https://github.com/usuario/repo.git" maxlength="500" />
+      </label>
+      <label class="field">
+        <span>Rama (branch)</span>
+        <input id="repo-branch" type="text" list="repo-branches" placeholder="main" maxlength="200" />
+        <datalist id="repo-branches">
+          <option value="main"></option>
+          <option value="master"></option>
+          <option value="develop"></option>
+        </datalist>
+      </label>
+      <label class="field">
+        <span>Ruta dentro del repositorio</span>
+        <input id="repo-path" type="text" placeholder="docs/notas (vacío = raíz)" maxlength="500" />
+      </label>
+      <fieldset class="field repo-options">
+        <legend>Integración antes del push</legend>
+        <label class="field-inline">
+          <input type="radio" name="repo-strategy" value="merge" />
+          <span>Merge (pull --no-rebase)</span>
+        </label>
+        <label class="field-inline">
+          <input type="radio" name="repo-strategy" value="rebase" />
+          <span>Rebase (pull --rebase)</span>
+        </label>
+        <label class="field-inline">
+          <input type="radio" name="repo-strategy" value="none" />
+          <span>Sin pull</span>
+        </label>
+      </fieldset>
+      <label class="field field-inline">
+        <input id="repo-pull" type="checkbox" />
+        <span>Hacer pull antes del push</span>
+      </label>
+      <label class="field field-inline">
+        <input id="repo-create" type="checkbox" />
+        <span>Crear la rama si no existe</span>
+      </label>
+      <label class="field field-inline">
+        <input id="repo-autopush" type="checkbox" />
+        <span>Autopush tras el autoguardado</span>
+      </label>
+      <p class="field-hint">
+        Se guarda en ~/.murk/config.json. El clon local vive en ~/.murk/repos/.
+        Requiere git instalado y credenciales configuradas (SSH o token HTTPS).
+      </p>
+    `;
+
+    const url = form.querySelector<HTMLInputElement>("#repo-url");
+    const branch = form.querySelector<HTMLInputElement>("#repo-branch");
+    const path = form.querySelector<HTMLInputElement>("#repo-path");
+    const pull = form.querySelector<HTMLInputElement>("#repo-pull");
+    const create = form.querySelector<HTMLInputElement>("#repo-create");
+    const autoPush = form.querySelector<HTMLInputElement>("#repo-autopush");
+    const strategies = Array.from(
+      form.querySelectorAll<HTMLInputElement>('input[name="repo-strategy"]'),
+    );
+
+    if (url) url.value = config.url;
+    if (branch) branch.value = config.branch;
+    if (path) path.value = config.path;
+    if (pull) pull.checked = config.pullBeforePush;
+    if (create) create.checked = config.createBranch;
+    if (autoPush) autoPush.checked = config.autoPush;
+    for (const radio of strategies) {
+      radio.checked = radio.value === config.strategy;
+    }
+
+    this.openModal({
+      title: "Repositorio",
+      message: "Publica documentos en un repositorio git remoto.",
+      body: form,
+      onEscape: () => this.closeModal(),
+      actions: [
+        {
+          label: "Guardar",
+          primary: true,
+          onClick: () => {
+            void (async () => {
+              const selected = strategies.find((radio) => radio.checked)?.value ?? "merge";
+              const next = normalizeRepository({
+                url: url?.value,
+                branch: branch?.value,
+                path: path?.value,
+                strategy: selected as RepositoryConfig["strategy"],
+                pullBeforePush: pull?.checked ?? true,
+                createBranch: create?.checked ?? false,
+                autoPush: autoPush?.checked ?? false,
+              });
+
+              try {
+                const saved = await host.repositoryConfigSave(next);
+                this.repoConfig = normalizeRepository(saved);
+                this.configureAutoPush();
+                this.closeModal();
+                this.toast("Configuración del repositorio guardada.");
+              } catch (error) {
+                this.toast(errorMessage(error));
+              }
+            })();
+          },
+        },
+        { label: "Cancelar", onClick: () => this.closeModal() },
+      ],
+    });
   }
 
   private setViewMode(mode: "editor" | "code"): void {

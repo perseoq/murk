@@ -8,9 +8,12 @@ export type ActionId =
   | "file.recent"
   | "file.save"
   | "file.saveAs"
+  | "file.push"
   | "file.history"
   | "file.export"
+  | "file.repository"
   | "file.autosave"
+  | "file.autopush"
   | "file.close"
   | "file.quit"
   | "edit.undo"
@@ -77,12 +80,19 @@ export const MENUS: MenuDef[] = [
       { label: "Abrir reciente…", action: "file.recent" },
       { label: "Guardar", action: "file.save", shortcut: "Ctrl+S" },
       { label: "Guardar como…", action: "file.saveAs", shortcut: "Ctrl+Shift+S" },
+      { label: "Push", action: "file.push" },
       { label: "Historial del documento…", action: "file.history" },
       { label: "Exportar…", action: "file.export" },
+      { label: "Repositorio…", action: "file.repository" },
       {
         label: "Autoguardado",
         action: "file.autosave",
         separatorBefore: true,
+        checkable: true,
+      },
+      {
+        label: "Autopush",
+        action: "file.autopush",
         checkable: true,
       },
       { label: "Cerrar pestaña", action: "file.close", shortcut: "Ctrl+W", separatorBefore: true },

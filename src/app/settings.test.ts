@@ -4,9 +4,11 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  DEFAULT_REPOSITORY,
   DEFAULT_SETTINGS,
   applySettings,
   normalizeAutosave,
+  normalizeRepository,
   normalizeSettings,
   normalizeTheme,
 } from "./settings";
@@ -16,6 +18,30 @@ describe("settings", () => {
     expect(normalizeSettings(null)).toEqual(DEFAULT_SETTINGS);
     expect(normalizeSettings(undefined)).toEqual(DEFAULT_SETTINGS);
     expect(normalizeSettings({})).toEqual(DEFAULT_SETTINGS);
+  });
+
+  it("normaliza la configuración del repositorio", () => {
+    expect(normalizeRepository(null)).toEqual(DEFAULT_REPOSITORY);
+    expect(
+      normalizeRepository({
+        url: "  https://example.com/notas.git ",
+        branch: " ",
+        path: "/docs/notas/",
+        strategy: "rebase",
+        pullBeforePush: false,
+        createBranch: true,
+        autoPush: true,
+      }),
+    ).toEqual({
+      url: "https://example.com/notas.git",
+      branch: "main",
+      path: "docs/notas",
+      strategy: "rebase",
+      pullBeforePush: false,
+      createBranch: true,
+      autoPush: true,
+    });
+    expect(normalizeRepository({ strategy: "squash" }).strategy).toBe("merge");
   });
 
   it("normaliza temas desconocidos", () => {

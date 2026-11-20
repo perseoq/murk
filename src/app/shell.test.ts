@@ -29,6 +29,9 @@ const mocks = vi.hoisted(() => ({
   historyClear: vi.fn(),
   settingsLoad: vi.fn(),
   settingsSave: vi.fn(),
+  repositoryConfigLoad: vi.fn(),
+  repositoryConfigSave: vi.fn(),
+  repositoryPush: vi.fn(),
   sessionLoad: vi.fn(),
   sessionSave: vi.fn(),
   version: vi.fn(),
@@ -140,6 +143,9 @@ vi.mock("../host", () => ({
     historyClear: mocks.historyClear,
     settingsLoad: mocks.settingsLoad,
     settingsSave: mocks.settingsSave,
+    repositoryConfigLoad: mocks.repositoryConfigLoad,
+    repositoryConfigSave: mocks.repositoryConfigSave,
+    repositoryPush: mocks.repositoryPush,
     sessionLoad: mocks.sessionLoad,
     sessionSave: mocks.sessionSave,
     version: mocks.version,
@@ -164,6 +170,14 @@ describe("Shell · flujo abrir → editar → guardar", () => {
     mocks.settingsLoad.mockResolvedValue(null);
     mocks.sessionLoad.mockResolvedValue(null);
     mocks.settingsSave.mockResolvedValue(undefined);
+    mocks.repositoryConfigLoad.mockResolvedValue(null);
+    mocks.repositoryConfigSave.mockImplementation((config: unknown) => Promise.resolve(config));
+    mocks.repositoryPush.mockResolvedValue({
+      branch: "main",
+      remoteUrl: "https://example.com/repo.git",
+      commit: "update: 2026-11-19T00:00:00Z",
+      files: ["nota.md"],
+    });
     mocks.sessionSave.mockResolvedValue(undefined);
     mocks.watchFile.mockResolvedValue(undefined);
     mocks.unwatchFile.mockResolvedValue(undefined);
@@ -399,6 +413,135 @@ describe("Shell · flujo abrir → editar → guardar", () => {
 
     readOnly.click();
     expect(readOnly.getAttribute("aria-pressed")).toBe("false");
+  });
+
+  it("abre el modal de repositorio y guarda la configuración", async () => {
+    const root = document.querySelector<HTMLElement>("#app");
+    if (!root) {
+      throw new Error("falta #app");
+    }
+
+    shell = new Shell(root);
+    await shell.boot();
+
+    const fileButton = Array.from(root.querySelectorAll<HTMLButtonElement>(".menu-button")).find(
+      (button) => button.textContent === "Archivo",
+    );
+    fileButton?.click();
+    root.querySelector<HTMLButtonElement>('[data-action="file.repository"]')?.click();
+
+    await vi.waitFor(() =>
+      expect(root.querySelector(".modal-title")?.textContent).toBe("Repositorio"),
+    );
+
+    const url = root.querySelector<HTMLInputElement>("#repo-url");
+    const branch = root.querySelector<HTMLInputElement>("#repo-branch");
+    const path = root.querySelector<HTMLInputElement>("#repo-path");
+    const rebase = root.querySelector<HTMLInputElement>(
+      'input[name="repo-strategy"][value="rebase"]',
+    );
+    if (!url || !branch || !path || !rebase) {
+      throw new Error("faltan campos del formulario de repositorio");
+    }
+
+    url.value = "https://example.com/notas.git";
+    branch.value = "main";
+    path.value = "docs";
+    rebase.checked = true;
+
+    const save = Array.from(
+      root.querySelectorAll<HTMLButtonElement>(".modal-actions .button"),
+    ).find((button) => button.textContent === "Guardar");
+    save?.click();
+
+    await vi.waitFor(() =>
+      expect(mocks.repositoryConfigSave).toHaveBeenCalledWith(
+        expect.objectContaining({
+          url: "https://example.com/notas.git",
+          branch: "main",
+          path: "docs",
+          strategy: "rebase",
+        }),
+      ),
+    );
+  });
+
+  it("muestra y alterna Autopush en el menú Archivo", async () => {
+    mocks.repositoryConfigLoad.mockResolvedValue({
+      url: "https://example.com/notas.git",
+      branch: "main",
+      path: "",
+      strategy: "merge",
+      pullBeforePush: true,
+      createBranch: false,
+      autoPush: false,
+    });
+
+    const root = document.querySelector<HTMLElement>("#app");
+    if (!root) {
+      throw new Error("falta #app");
+    }
+
+    shell = new Shell(root);
+    await shell.boot();
+
+    const fileButton = Array.from(root.querySelectorAll<HTMLButtonElement>(".menu-button")).find(
+      (button) => button.textContent === "Archivo",
+    );
+    fileButton?.click();
+    const first = root.querySelector<HTMLButtonElement>('[data-action="file.autopush"]');
+    expect(first?.getAttribute("aria-checked")).toBe("false");
+
+    first?.click();
+    await vi.waitFor(() =>
+      expect(mocks.repositoryConfigSave).toHaveBeenCalledWith(
+        expect.objectContaining({ autoPush: true }),
+      ),
+    );
+
+    fileButton?.click();
+    const second = root.querySelector<HTMLButtonElement>('[data-action="file.autopush"]');
+    expect(second?.getAttribute("aria-checked")).toBe("true");
+  });
+
+  it("guarda el documento y hace push con el menú Push", async () => {
+    mocks.repositoryConfigLoad.mockResolvedValue({
+      url: "https://example.com/notas.git",
+      branch: "main",
+      path: "docs",
+      strategy: "merge",
+      pullBeforePush: true,
+      createBranch: false,
+      autoPush: false,
+    });
+    mocks.saveFileDialog.mockResolvedValue("/tmp/nota.md");
+    mocks.fileSave.mockResolvedValue({
+      path: "/tmp/nota.md",
+      name: "nota.md",
+      size: 5,
+      modifiedMs: 1,
+      encoding: "utf-8",
+      eol: "lf",
+      bom: false,
+      fingerprint: "fp-3",
+    });
+
+    const root = document.querySelector<HTMLElement>("#app");
+    if (!root) {
+      throw new Error("falta #app");
+    }
+
+    shell = new Shell(root);
+    await shell.boot();
+    shell.replaceActiveContent("hola");
+
+    const fileButton = Array.from(root.querySelectorAll<HTMLButtonElement>(".menu-button")).find(
+      (button) => button.textContent === "Archivo",
+    );
+    fileButton?.click();
+    root.querySelector<HTMLButtonElement>('[data-action="file.push"]')?.click();
+
+    await vi.waitFor(() => expect(mocks.repositoryPush).toHaveBeenCalledWith(["/tmp/nota.md"]));
   });
 
   it("pide guardar al cerrar con cambios y destruye la ventana", async () => {

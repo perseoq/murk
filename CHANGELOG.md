@@ -20,6 +20,16 @@
 - El ítem marcable del menú alinea la marca a la izquierda y el atajo a la
   derecha.
 
+### Repositorio git
+
+- **Archivo → Repositorio…** configura URL, rama, ruta interna, estrategia de
+  integración (merge/rebase/sin pull) y creación de rama.
+- Configuración persistida en `~/.murk/config.json`; clon local en
+  `~/.murk/repos/<repo>`.
+- **Archivo → Push** guarda, hace commit y ejecuta `git push origin <rama>`.
+- **Archivo → Autopush** hace commit y push automáticos tras el autoguardado.
+- Mensajes de commit `new: <timestamp>` y `update: <timestamp>`.
+
 ## 1.0.0 — 2026-11-19
 
 Primera versión estable de Murk.

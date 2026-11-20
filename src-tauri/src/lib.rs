@@ -12,6 +12,7 @@ mod error;
 mod export;
 mod integration;
 mod recovery;
+mod repository;
 mod store;
 mod watcher;
 mod workspace;
@@ -65,6 +66,9 @@ pub fn run() {
             recovery::history_list,
             recovery::history_read,
             recovery::history_clear,
+            repository::repository_config_load,
+            repository::repository_config_save,
+            repository::repository_push,
             watcher::watch_file,
             watcher::unwatch_file,
         ])
