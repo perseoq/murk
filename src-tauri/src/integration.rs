@@ -70,6 +70,7 @@ fn write_appimage_integration(home: &Path, appdir: &Path, appimage: &str) {
 #[cfg(target_os = "linux")]
 fn appimage_desktop_entry(appimage: &str) -> String {
     let exec = appimage.replace('"', "\\\"");
+    let version = env!("CARGO_PKG_VERSION");
     format!(
         "[Desktop Entry]\n\
          Type=Application\n\
@@ -82,7 +83,7 @@ fn appimage_desktop_entry(appimage: &str) -> String {
          MimeType=text/markdown;text/x-markdown;\n\
          StartupWMClass=Murk\n\
          Keywords=markdown;editor;notes;text;\n\
-         X-AppImage-Version=1.0.0\n"
+         X-AppImage-Version={version}\n"
     )
 }
 

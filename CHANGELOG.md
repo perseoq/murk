@@ -1,6 +1,6 @@
 # Changelog
 
-## Sin publicar
+## 1.2.1795142574 - 2026-11-19
 
 ### Correcciones
 
