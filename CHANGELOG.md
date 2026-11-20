@@ -1,5 +1,14 @@
 # Changelog
 
+## 1.2.1795188918 - 2026-11-20
+
+### Correcciones
+
+- Editar celdas y borrar filas o columnas ya no bloquea la aplicación. El
+  contenido editable de la celda vive en un elemento separado de los botones
+  (al enfocar ya no se pierden las `×`) y los cambios se aplican en una
+  microtarea, evitando reentradas de CodeMirror desde eventos del widget.
+
 ## 1.2.1795187255 - 2026-11-20
 
 ### Tablas

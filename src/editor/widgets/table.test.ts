@@ -52,14 +52,14 @@ function fakeView(state: EditorState): { view: EditorView; changes: Array<unknow
 }
 
 describe("widget de tabla", () => {
-  it("permite editar una celda y sincroniza el Markdown", () => {
+  it("permite editar una celda y sincroniza el Markdown", async () => {
     const { state, table } = build();
     const { view, changes } = fakeView(state);
     const widget = new TableWidget(table, "tabla", 0);
     const element = widget.toDOM(view);
     document.body.append(element);
 
-    const cells = Array.from(element.querySelectorAll<HTMLTableCellElement>("td"));
+    const cells = Array.from(element.querySelectorAll<HTMLElement>("td .cm-md-table-cell"));
     expect(cells).toHaveLength(2);
 
     cells[0].dispatchEvent(new FocusEvent("focus"));
@@ -68,6 +68,7 @@ describe("widget de tabla", () => {
 
     cells[0].textContent = "nuevo";
     cells[0].dispatchEvent(new FocusEvent("blur"));
+    await Promise.resolve();
 
     expect(changes).toEqual([
       { from: table.rows[0][0].from, to: table.rows[0][0].to, insert: "nuevo" },
@@ -75,19 +76,20 @@ describe("widget de tabla", () => {
     element.remove();
   });
 
-  it("escapa las barras verticales al editar", () => {
+  it("escapa las barras verticales al editar", async () => {
     const { state, table } = build();
     const { view, changes } = fakeView(state);
     const widget = new TableWidget(table, "tabla", 0);
     const element = widget.toDOM(view);
     document.body.append(element);
 
-    const cell = element.querySelector<HTMLTableCellElement>("td");
+    const cell = element.querySelector<HTMLElement>("td .cm-md-table-cell");
     cell?.dispatchEvent(new FocusEvent("focus"));
     if (cell) {
       cell.textContent = "a | b";
       cell.dispatchEvent(new FocusEvent("blur"));
     }
+    await Promise.resolve();
 
     expect(changes[0]).toMatchObject({ insert: "a \\| b" });
     element.remove();
@@ -107,7 +109,7 @@ describe("widget de tabla", () => {
     expect(tableElement?.style.width).toBe("320px");
   });
 
-  it("añade filas y columnas desde la barra de la tabla", () => {
+  it("añade filas y columnas desde la barra de la tabla", async () => {
     const { state, table } = build();
     const { view, changes } = fakeView(state);
     const widget = new TableWidget(table, "tabla", 0);
@@ -120,9 +122,11 @@ describe("widget de tabla", () => {
       );
 
     button("+ Fila")?.click();
+    await Promise.resolve();
     expect(changes[0]).toMatchObject({ insert: "\n|    |    |" });
 
     button("+ Columna")?.click();
+    await Promise.resolve();
     expect(changes[1]).toMatchObject({ from: table.from, to: table.to });
     const added = (changes[1] as { insert: string }).insert;
     expect(added).toContain("Columna");
@@ -131,7 +135,7 @@ describe("widget de tabla", () => {
     element.remove();
   });
 
-  it("elimina solo la columna cuyo título se pulsa", () => {
+  it("elimina solo la columna cuyo título se pulsa", async () => {
     const { state, table } = build(false, "| A | B | C |\n|---|---|---|\n| 1 | 2 | 3 |\n\ntexto");
     const { view, changes } = fakeView(state);
     const element = new TableWidget(table, "tabla", 0).toDOM(view);
@@ -139,6 +143,7 @@ describe("widget de tabla", () => {
     const buttons = element.querySelectorAll<HTMLButtonElement>(".cm-md-table-delete-col");
     expect(buttons).toHaveLength(3);
     buttons[1].click();
+    await Promise.resolve();
 
     const insert = (changes[0] as { insert: string }).insert;
     expect(insert).toContain("A");
@@ -150,7 +155,7 @@ describe("widget de tabla", () => {
     expect(insert.split("\n")[0].split("|")).toHaveLength(4);
   });
 
-  it("elimina solo la fila cuyo botón se pulsa", () => {
+  it("elimina solo la fila cuyo botón se pulsa", async () => {
     const { state, table } = build(false, "| A | B |\n|---|---|\n| 1 | 2 |\n| 3 | 4 |\n\ntexto");
     const { view, changes } = fakeView(state);
     const element = new TableWidget(table, "tabla", 0).toDOM(view);
@@ -158,6 +163,7 @@ describe("widget de tabla", () => {
     const buttons = element.querySelectorAll<HTMLButtonElement>(".cm-md-table-delete-row");
     expect(buttons).toHaveLength(2);
     buttons[0].click();
+    await Promise.resolve();
 
     const insert = (changes[0] as { insert: string }).insert;
     expect(insert).not.toContain("1");
@@ -190,6 +196,8 @@ describe("widget de tabla", () => {
     const element = widget.toDOM(view);
 
     expect(element.querySelectorAll(".cm-md-table-resize")).toHaveLength(0);
-    expect(element.querySelector("td")?.getAttribute("contenteditable")).toBeNull();
+    expect(
+      element.querySelector("td .cm-md-table-cell")?.getAttribute("contenteditable"),
+    ).toBeNull();
   });
 });

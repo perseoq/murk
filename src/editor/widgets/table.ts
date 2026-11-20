@@ -81,6 +81,13 @@ export class TableWidget extends WidgetType {
   toDOM(view: EditorView): HTMLElement {
     const wrap = document.createElement("div");
     wrap.className = "cm-md-table-wrap";
+    // El widget no es editable como bloque; solo las celdas lo son. Así
+    // CodeMirror no interpreta los cambios del widget como ediciones del documento.
+    wrap.contentEditable = "false";
+
+    const defer = (action: () => void): void => {
+      queueMicrotask(action);
+    };
 
     const table = document.createElement("table");
     table.className = "cm-md-table";
@@ -127,17 +134,20 @@ export class TableWidget extends WidgetType {
         restore(element, cell);
         return;
       }
-      view.dispatch({
-        changes: { from: cell.from, to: cell.to, insert: raw.replace(/\|/g, "\\|") },
+      defer(() => {
+        view.dispatch({
+          changes: { from: cell.from, to: cell.to, insert: raw.replace(/\|/g, "\\|") },
+        });
       });
     };
-
     const deleteRow = (rowIndex: number): void => {
       const header = this.table.header.map((cell) => cell.text);
       const rows = this.table.rows.map((row) => row.map((cell) => cell.text));
       rows.splice(rowIndex, 1);
       const text = serializeTable(header, rows, this.table.alignments);
-      view.dispatch({ changes: { from: this.table.from, to: this.table.to, insert: text } });
+      defer(() => {
+        view.dispatch({ changes: { from: this.table.from, to: this.table.to, insert: text } });
+      });
     };
 
     const deleteColumn = (column: number): void => {
@@ -153,14 +163,16 @@ export class TableWidget extends WidgetType {
       const alignments = [...this.table.alignments];
       alignments.splice(column, 1);
       const text = serializeTable(header, rows, alignments);
-      view.dispatch({ changes: { from: this.table.from, to: this.table.to, insert: text } });
-      if (widths.length > 0) {
-        setTableWidths(
-          view,
-          this.index,
-          widths.filter((_, index) => index !== column),
-        );
-      }
+      defer(() => {
+        view.dispatch({ changes: { from: this.table.from, to: this.table.to, insert: text } });
+        if (widths.length > 0) {
+          setTableWidths(
+            view,
+            this.index,
+            widths.filter((_, index) => index !== column),
+          );
+        }
+      });
     };
 
     const buildCell = (
@@ -172,54 +184,57 @@ export class TableWidget extends WidgetType {
     ): HTMLElement => {
       const element = document.createElement(tag);
       element.className = alignmentClass(this.table.alignments[column] ?? "default");
-      element.append(inline(cell.text));
 
-      if (!editable) {
-        return element;
+      // El contenido editable va en un span aparte para que los botones de
+      // borrar no formen parte del texto de la celda.
+      const content = document.createElement("span");
+      content.className = "cm-md-table-cell";
+      content.append(inline(cell.text));
+      element.append(content);
+
+      if (editable) {
+        content.contentEditable = "true";
+        content.spellcheck = false;
+        content.title = "Clic para editar la celda";
+
+        content.addEventListener("focus", () => {
+          if (content.dataset.editing === "true") {
+            return;
+          }
+          content.dataset.editing = "true";
+          content.textContent = cell.text;
+          const range = document.createRange();
+          range.selectNodeContents(content);
+          range.collapse(false);
+          const selection = window.getSelection();
+          selection?.removeAllRanges();
+          selection?.addRange(range);
+        });
+
+        content.addEventListener("blur", () => commit(content, cell));
+
+        content.addEventListener("keydown", (event) => {
+          if (event.key === "Enter" && !event.shiftKey) {
+            event.preventDefault();
+            commit(content, cell);
+            content.blur();
+          } else if (event.key === "Escape") {
+            event.preventDefault();
+            restore(content, cell);
+            content.blur();
+          } else if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "s") {
+            // Guardar sin perder la celda que se está editando.
+            commit(content, cell);
+            content.blur();
+          }
+        });
+
+        content.addEventListener("mousedown", (event) => {
+          event.stopPropagation();
+        });
       }
 
-      element.contentEditable = "true";
-      element.spellcheck = false;
-      element.setAttribute("role", header ? "columnheader" : "cell");
-      element.title = "Clic para editar la celda";
-
-      element.addEventListener("focus", () => {
-        if (element.dataset.editing === "true") {
-          return;
-        }
-        element.dataset.editing = "true";
-        element.textContent = cell.text;
-        const range = document.createRange();
-        range.selectNodeContents(element);
-        range.collapse(false);
-        const selection = window.getSelection();
-        selection?.removeAllRanges();
-        selection?.addRange(range);
-      });
-
-      element.addEventListener("blur", () => commit(element, cell));
-
-      element.addEventListener("keydown", (event) => {
-        if (event.key === "Enter" && !event.shiftKey) {
-          event.preventDefault();
-          commit(element, cell);
-          element.blur();
-        } else if (event.key === "Escape") {
-          event.preventDefault();
-          restore(element, cell);
-          element.blur();
-        } else if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "s") {
-          // Guardar sin perder la celda que se está editando.
-          commit(element, cell);
-          element.blur();
-        }
-      });
-
-      element.addEventListener("mousedown", (event) => {
-        event.stopPropagation();
-      });
-
-      if (header && columns > 1) {
+      if (editable && header && columns > 1) {
         const remove = document.createElement("button");
         remove.type = "button";
         remove.className = "cm-md-table-delete-col";
@@ -235,7 +250,7 @@ export class TableWidget extends WidgetType {
         element.append(remove);
       }
 
-      if (!header && rowIndex !== undefined && column === 0) {
+      if (editable && !header && rowIndex !== undefined && column === 0) {
         const remove = document.createElement("button");
         remove.type = "button";
         remove.className = "cm-md-table-delete-row";
@@ -284,7 +299,7 @@ export class TableWidget extends WidgetType {
         handle.removeEventListener("pointerup", finish);
         handle.removeEventListener("pointercancel", finish);
         if (widths.length > 0) {
-          setTableWidths(view, this.index, widths);
+          defer(() => setTableWidths(view, this.index, widths));
         }
       };
 
@@ -321,8 +336,10 @@ export class TableWidget extends WidgetType {
 
     const addRow = (): void => {
       const last = this.table.rowLines.at(-1) ?? this.table.separatorLine;
-      const line = view.state.doc.line(last);
-      view.dispatch({ changes: { from: line.to, insert: `\n${emptyRow(columns)}` } });
+      defer(() => {
+        const line = view.state.doc.line(last);
+        view.dispatch({ changes: { from: line.to, insert: `\n${emptyRow(columns)}` } });
+      });
     };
 
     const addColumn = (): void => {
@@ -333,10 +350,12 @@ export class TableWidget extends WidgetType {
         row.push("");
       }
       const text = serializeTable(header, rows, [...this.table.alignments, "default"]);
-      view.dispatch({ changes: { from: this.table.from, to: this.table.to, insert: text } });
-      if (widths.length > 0) {
-        setTableWidths(view, this.index, [...widths, 160]);
-      }
+      defer(() => {
+        view.dispatch({ changes: { from: this.table.from, to: this.table.to, insert: text } });
+        if (widths.length > 0) {
+          setTableWidths(view, this.index, [...widths, 160]);
+        }
+      });
     };
 
     const toolbar = document.createElement("div");
