@@ -29,9 +29,14 @@ pub fn integrate_appimage() {
         return;
     };
 
-    let home = PathBuf::from(home);
+    write_appimage_integration(Path::new(&home), Path::new(&appdir), &appimage);
+}
+
+/// Escribe (o actualiza) la entrada de escritorio y los iconos de la AppImage.
+#[cfg(target_os = "linux")]
+fn write_appimage_integration(home: &Path, appdir: &Path, appimage: &str) {
     for size in ["128x128", "256x256", "512x512"] {
-        let icon_source = Path::new(&appdir)
+        let icon_source = appdir
             .join("usr/share/icons/hicolor")
             .join(size)
             .join("apps/murk.png");
@@ -51,8 +56,21 @@ pub fn integrate_appimage() {
 
     let desktop_dir = home.join(".local/share/applications");
     let desktop_path = desktop_dir.join("io.github.perseoq.murk.desktop");
+    let entry = appimage_desktop_entry(appimage);
+
+    // La comparación hace que, si la AppImage cambia de ruta, el Exec se
+    // reescriba con la ubicación actual.
+    if std::fs::read_to_string(&desktop_path).ok().as_deref() != Some(entry.as_str())
+        && std::fs::create_dir_all(&desktop_dir).is_ok()
+    {
+        let _ = std::fs::write(&desktop_path, entry);
+    }
+}
+
+#[cfg(target_os = "linux")]
+fn appimage_desktop_entry(appimage: &str) -> String {
     let exec = appimage.replace('"', "\\\"");
-    let entry = format!(
+    format!(
         "[Desktop Entry]\n\
          Type=Application\n\
          Name=Murk\n\
@@ -65,13 +83,7 @@ pub fn integrate_appimage() {
          StartupWMClass=Murk\n\
          Keywords=markdown;editor;notes;text;\n\
          X-AppImage-Version=1.0.0\n"
-    );
-
-    if std::fs::read_to_string(&desktop_path).ok().as_deref() != Some(entry.as_str())
-        && std::fs::create_dir_all(&desktop_dir).is_ok()
-    {
-        let _ = std::fs::write(&desktop_path, entry);
-    }
+    )
 }
 
 /// En otros sistemas no hay integración de AppImage.
@@ -181,5 +193,32 @@ mod tests {
         let args = vec![file.to_string_lossy().into_owned()];
         let paths = paths_from_args(&args, Path::new("/tmp"));
         assert_eq!(paths, vec![file.to_string_lossy().into_owned()]);
+    }
+
+    #[cfg(target_os = "linux")]
+    #[test]
+    fn appimage_desktop_entry_tracks_current_path() {
+        let home = tempfile::tempdir().expect("home");
+        let appdir = tempfile::tempdir().expect("appdir");
+        let icons = appdir.path().join("usr/share/icons/hicolor/128x128/apps");
+        std::fs::create_dir_all(&icons).expect("iconos");
+        std::fs::write(icons.join("murk.png"), b"png").expect("icono");
+
+        let desktop = home
+            .path()
+            .join(".local/share/applications/io.github.perseoq.murk.desktop");
+
+        write_appimage_integration(home.path(), appdir.path(), "/tmp/primera/Murk.AppImage");
+        let first = std::fs::read_to_string(&desktop).expect("desktop");
+        assert!(first.contains("Exec=\"/tmp/primera/Murk.AppImage\" %F"));
+        assert!(home
+            .path()
+            .join(".local/share/icons/hicolor/128x128/apps/murk.png")
+            .exists());
+
+        write_appimage_integration(home.path(), appdir.path(), "/tmp/otra-ruta/Murk.AppImage");
+        let second = std::fs::read_to_string(&desktop).expect("desktop actualizado");
+        assert!(second.contains("Exec=\"/tmp/otra-ruta/Murk.AppImage\" %F"));
+        assert!(!second.contains("/tmp/primera/Murk.AppImage"));
     }
 }

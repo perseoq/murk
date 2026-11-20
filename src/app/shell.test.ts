@@ -333,6 +333,19 @@ describe("Shell · flujo abrir → editar → guardar", () => {
     expect(toggle.getAttribute("aria-expanded")).toBe("true");
   });
 
+  it("muestra el logo del boxer junto al menú", async () => {
+    const root = document.querySelector<HTMLElement>("#app");
+    if (!root) {
+      throw new Error("falta #app");
+    }
+
+    shell = new Shell(root);
+    await shell.boot();
+
+    const logo = root.querySelector<HTMLImageElement>(".brand img");
+    expect(logo?.getAttribute("src")).toBe("/favicon.svg");
+  });
+
   it("marca y desmarca el autoguardado desde el menú Archivo", async () => {
     const root = document.querySelector<HTMLElement>("#app");
     if (!root) {

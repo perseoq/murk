@@ -378,7 +378,9 @@ export class Shell {
             aria-controls="sidebar"
             aria-expanded="true"
           >☰</button>
-          <div class="brand" aria-hidden="true">M</div>
+          <div class="brand" aria-hidden="true">
+            <img src="/favicon.svg" alt="" width="24" height="24" />
+          </div>
           <nav class="menus" role="menubar" aria-label="Menú principal"></nav>
           <div class="menubar-spacer"></div>
           <span class="save-state" id="save-state" role="status">Guardado</span>

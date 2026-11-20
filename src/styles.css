@@ -97,11 +97,14 @@ body {
   place-items: center;
   width: 24px;
   height: 24px;
-  border-radius: 7px;
-  background: linear-gradient(135deg, #38bdf8, #6366f1);
-  color: #fff;
-  font-size: 13px;
-  font-weight: 700;
+  overflow: hidden;
+  border-radius: 6px;
+}
+
+.brand img {
+  display: block;
+  width: 24px;
+  height: 24px;
 }
 
 .sidebar-toggle {

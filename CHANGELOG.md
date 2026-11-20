@@ -19,7 +19,8 @@
   (`src-tauri/icons/`, incluidos `.ico` e `.icns`).
 - Integración de icono con GNOME/Wayland mediante `enableGTKAppId` y un
   `.desktop` con el id `io.github.perseoq.murk`. La AppImage se integra en
-  `~/.local/share` en su primer arranque.
+  `~/.local/share` en su primer arranque y actualiza su `Exec` si cambia de ruta.
+- El logo del boxer sustituye a la «M» junto al menú Archivo.
 - **Archivo → Autoguardado** es una opción marcable que activa o desactiva el
   guardado automático sin abrir Preferencias.
 - La barra de estado muestra botones SVG para cambiar entre código fuente,
