@@ -12,11 +12,11 @@ interface Collected {
   widgets: number;
 }
 
-function collect(doc: string, cursor = doc.length): Collected {
+function collect(doc: string, cursor = doc.length, readOnly = false): Collected {
   const state = EditorState.create({
     doc,
     selection: { anchor: cursor },
-    extensions: [markdown({ base: markdownLanguage })],
+    extensions: [markdown({ base: markdownLanguage }), EditorState.readOnly.of(readOnly)],
   });
   const result = buildBlockDecorations(state);
 
@@ -85,5 +85,22 @@ describe("widgets de bloque (A5)", () => {
     const inside = collect(doc, 3);
     expect(inside.widgets).toBe(0);
     expect(inside.atomic).toBe(0);
+  });
+
+  it("mantiene la tabla, Mermaid y las fórmulas renderizadas en solo lectura", () => {
+    const table = "| A | B |\n|---|---|\n| 1 | 2 |\n\ntexto";
+    const tableInside = collect(table, 3, true);
+    expect(tableInside.widgets).toBe(1);
+    expect(tableInside.atomic).toBe(1);
+
+    const mermaid = "```mermaid\ngraph TD\nA-->B\n```\n\ntexto";
+    const mermaidInside = collect(mermaid, 15, true);
+    expect(mermaidInside.widgets).toBe(1);
+    expect(mermaidInside.atomic).toBe(1);
+
+    const math = "$$\n\\int x\n$$\n\ntexto";
+    const mathInside = collect(math, 4, true);
+    expect(mathInside.widgets).toBe(1);
+    expect(mathInside.atomic).toBe(1);
   });
 });

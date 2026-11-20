@@ -2,7 +2,7 @@
 // Copyright (C) 2026 Murk contributors
 
 import { syntaxTree } from "@codemirror/language";
-import { RangeSet, StateField, type EditorState, type Range } from "@codemirror/state";
+import { EditorState, RangeSet, StateField, type Range } from "@codemirror/state";
 import { Decoration, EditorView, type DecorationSet } from "@codemirror/view";
 import type { SyntaxNode } from "@lezer/common";
 
@@ -46,8 +46,11 @@ export function buildBlockDecorations(state: EditorState): BlockWidgetResult {
   const ranges: Range<Decoration>[] = [];
   const atomic: Range<Decoration>[] = [];
 
+  // En solo lectura las tablas, mermaid y las fórmulas se quedan siempre
+  // renderizadas, aunque el cursor esté dentro.
+  const readOnly = state.facet(EditorState.readOnly);
   const touches = (from: number, to: number): boolean =>
-    state.selection.ranges.some((range) => range.from <= to && range.to >= from);
+    !readOnly && state.selection.ranges.some((range) => range.from <= to && range.to >= from);
 
   syntaxTree(state).iterate({
     enter: (node) => {
@@ -157,6 +160,8 @@ export const blockWidgetsField = StateField.define<BlockWidgetResult>({
     if (
       transaction.docChanged ||
       transaction.selection ||
+      transaction.startState.facet(EditorState.readOnly) !==
+        transaction.state.facet(EditorState.readOnly) ||
       transaction.effects.some((effect) => effect.is(refreshEffect))
     ) {
       return buildBlockDecorations(transaction.state);
