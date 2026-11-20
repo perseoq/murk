@@ -1,5 +1,21 @@
 # Changelog
 
+## 1.2.1795147921 - 2026-11-20
+
+### Correcciones
+
+- **Mermaid**: las etiquetas vuelven a aparecer dentro de las figuras. Se fuerza
+  `htmlLabels: false` (Mermaid 12 usaba HTML en `foreignObject` y el saneado lo
+  eliminaba) y se mide el texto con una familia tipográfica concreta en lugar de
+  `var(--murk-font)`, que WebKit no resuelve al medir.
+- **Diagramas en tema oscuro**: legibles, sin etiquetas invisibles; el fondo de
+  las etiquetas de arista se iguala al del editor.
+- **Matemáticas**: además de `$...$` y `$$...$$` se aceptan los delimitadores
+  `\(...\)` en línea y `\[...\]` en bloque.
+- **Apertura de archivos en Linux**: al ejecutarse se registra el `.desktop` del
+  ejecutable actual y se deja como predeterminado para Markdown, para que el
+  doble clic y «Abrir con» usen Murk.
+
 ## 1.2.1795146253 - 2026-11-19
 
 ### Correcciones

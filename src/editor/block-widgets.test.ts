@@ -57,6 +57,17 @@ describe("widgets de bloque (A5)", () => {
     expect(result.atomic).toBe(1);
   });
 
+  it("sustituye matemáticas \\[ ... \\] de varias líneas", () => {
+    const doc = "\\[\n\\int_0^1 x^2 dx\n\\]\n\ntexto";
+    const result = collect(doc);
+
+    expect(result.widgets).toBe(1);
+    expect(result.atomic).toBe(1);
+
+    const inside = collect(doc, 4);
+    expect(inside.widgets).toBe(0);
+  });
+
   it("revela el bloque matemático con el cursor dentro", () => {
     const result = collect("$$\n\\int x\n$$\n\ntexto", 4);
 

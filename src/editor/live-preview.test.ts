@@ -90,6 +90,14 @@ describe("live preview (A4)", () => {
     expect(result.classes).toContain("cm-md-link");
   });
 
+  it("acepta los delimitadores MathJax \\( \\) y \\[ \\]", () => {
+    const inline = collect("Texto \\(x^2\\) final\n\nresto");
+    expect(inline.widgets).toBeGreaterThan(0);
+
+    const block = collect("\\[\\int_0^1 x\\,dx\\]\n\nresto");
+    expect(block.widgets).toBeGreaterThan(0);
+  });
+
   it("oculta los backticks de código en línea", () => {
     const result = collect("`código`\n\ntexto");
 

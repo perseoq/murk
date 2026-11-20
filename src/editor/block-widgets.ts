@@ -109,7 +109,9 @@ export function buildBlockDecorations(state: EditorState): BlockWidgetResult {
 
   for (let index = 1; index <= doc.lines; index += 1) {
     const opening = doc.line(index);
-    if (opening.text.trim() !== "$$" || insideCode(state, opening.from)) {
+    const openingMarker = opening.text.trim();
+    const closingMarker = openingMarker === "$$" ? "$$" : openingMarker === "\\[" ? "\\]" : null;
+    if (!closingMarker || insideCode(state, opening.from)) {
       continue;
     }
     if (isNestedBlock(state, opening.from)) {
@@ -118,7 +120,7 @@ export function buildBlockDecorations(state: EditorState): BlockWidgetResult {
 
     let closingIndex = 0;
     for (let next = index + 1; next <= doc.lines; next += 1) {
-      if (doc.line(next).text.trim() === "$$") {
+      if (doc.line(next).text.trim() === closingMarker) {
         closingIndex = next;
         break;
       }

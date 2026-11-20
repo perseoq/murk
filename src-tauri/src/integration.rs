@@ -13,58 +13,99 @@ pub struct StartupFiles(pub Mutex<Vec<String>>);
 
 const FLAGS_WITH_VALUE: &[&str] = &["--export", "-o", "--output"];
 
-/// Instala el `.desktop` y el icono de una AppImage en el perfil del usuario.
+/// Instala el `.desktop` y los iconos en el perfil del usuario.
 ///
 /// El escritorio GNOME asocia la ventana por su id GTK
 /// (`io.github.perseoq.murk`) con un archivo `.desktop` del mismo nombre. La
-/// AppImage no instala nada por sí sola, así que la primera ejecución deja una
-/// entrada en `~/.local/share/applications` que apunta al propio AppImage.
+/// AppImage no instala nada por sí sola y un binario suelto tampoco, así que
+/// cada ejecución deja una entrada en `~/.local/share/applications` que apunta
+/// al ejecutable actual para que «Abrir con Murk» y los dobles clics
+/// funcionen.
 #[cfg(target_os = "linux")]
-pub fn integrate_appimage() {
-    let (Ok(appimage), Ok(appdir), Ok(home)) = (
-        std::env::var("APPIMAGE"),
-        std::env::var("APPDIR"),
-        std::env::var("HOME"),
-    ) else {
+pub fn integrate_desktop() {
+    let Ok(home) = std::env::var("HOME") else {
         return;
     };
+    let home = PathBuf::from(home);
+    let appdir = std::env::var("APPDIR").ok().map(PathBuf::from);
+    let executable = match std::env::var("APPIMAGE") {
+        Ok(appimage) if !appimage.is_empty() => appimage,
+        _ => match std::env::current_exe() {
+            Ok(path) => path.to_string_lossy().into_owned(),
+            Err(_) => return,
+        },
+    };
 
-    write_appimage_integration(Path::new(&home), Path::new(&appdir), &appimage);
+    write_desktop_integration(&home, appdir.as_deref(), &executable);
 }
 
-/// Escribe (o actualiza) la entrada de escritorio y los iconos de la AppImage.
+/// Escribe (o actualiza) la entrada de escritorio y los iconos disponibles.
 #[cfg(target_os = "linux")]
-fn write_appimage_integration(home: &Path, appdir: &Path, appimage: &str) {
-    for size in ["128x128", "256x256", "512x512"] {
-        let icon_source = appdir
-            .join("usr/share/icons/hicolor")
-            .join(size)
-            .join("apps/murk.png");
-        if !icon_source.exists() {
-            continue;
-        }
-        let icon_target = home
-            .join(".local/share/icons/hicolor")
-            .join(size)
-            .join("apps/murk.png");
-        if let Some(parent) = icon_target.parent() {
-            if std::fs::create_dir_all(parent).is_ok() {
-                let _ = std::fs::copy(&icon_source, &icon_target);
+fn write_desktop_integration(home: &Path, appdir: Option<&Path>, executable: &str) {
+    if let Some(appdir) = appdir {
+        for size in ["128x128", "256x256", "512x512"] {
+            let icon_source = appdir
+                .join("usr/share/icons/hicolor")
+                .join(size)
+                .join("apps/murk.png");
+            if !icon_source.exists() {
+                continue;
+            }
+            let icon_target = home
+                .join(".local/share/icons/hicolor")
+                .join(size)
+                .join("apps/murk.png");
+            if let Some(parent) = icon_target.parent() {
+                if std::fs::create_dir_all(parent).is_ok() {
+                    let _ = std::fs::copy(&icon_source, &icon_target);
+                }
             }
         }
     }
 
     let desktop_dir = home.join(".local/share/applications");
     let desktop_path = desktop_dir.join("io.github.perseoq.murk.desktop");
-    let entry = appimage_desktop_entry(appimage);
+    let entry = appimage_desktop_entry(executable);
+    let existed = desktop_path.exists();
 
-    // La comparación hace que, si la AppImage cambia de ruta, el Exec se
+    // La comparación hace que, si el ejecutable cambia de ruta, el Exec se
     // reescriba con la ubicación actual.
     if std::fs::read_to_string(&desktop_path).ok().as_deref() != Some(entry.as_str())
         && std::fs::create_dir_all(&desktop_dir).is_ok()
     {
         let _ = std::fs::write(&desktop_path, entry);
+        refresh_desktop_database(&desktop_dir);
     }
+
+    if !existed {
+        #[cfg(not(test))]
+        register_default_handler();
+    }
+}
+
+/// Deja Murk como aplicación predeterminada para Markdown la primera vez.
+#[cfg(all(target_os = "linux", not(test)))]
+fn register_default_handler() {
+    use std::process::{Command, Stdio};
+
+    for mime in ["text/markdown", "text/x-markdown"] {
+        let _ = Command::new("xdg-mime")
+            .args(["default", "io.github.perseoq.murk.desktop", mime])
+            .stdout(Stdio::null())
+            .stderr(Stdio::null())
+            .status();
+    }
+}
+
+#[cfg(target_os = "linux")]
+fn refresh_desktop_database(desktop_dir: &Path) {
+    use std::process::{Command, Stdio};
+
+    let _ = Command::new("update-desktop-database")
+        .arg(desktop_dir)
+        .stdout(Stdio::null())
+        .stderr(Stdio::null())
+        .status();
 }
 
 #[cfg(target_os = "linux")]
@@ -254,7 +295,11 @@ mod tests {
             .path()
             .join(".local/share/applications/io.github.perseoq.murk.desktop");
 
-        write_appimage_integration(home.path(), appdir.path(), "/tmp/primera/Murk.AppImage");
+        write_desktop_integration(
+            home.path(),
+            Some(appdir.path()),
+            "/tmp/primera/Murk.AppImage",
+        );
         let first = std::fs::read_to_string(&desktop).expect("desktop");
         assert!(first.contains("Exec=\"/tmp/primera/Murk.AppImage\" %F"));
         assert!(home
@@ -262,7 +307,11 @@ mod tests {
             .join(".local/share/icons/hicolor/128x128/apps/murk.png")
             .exists());
 
-        write_appimage_integration(home.path(), appdir.path(), "/tmp/otra-ruta/Murk.AppImage");
+        write_desktop_integration(
+            home.path(),
+            Some(appdir.path()),
+            "/tmp/otra-ruta/Murk.AppImage",
+        );
         let second = std::fs::read_to_string(&desktop).expect("desktop actualizado");
         assert!(second.contains("Exec=\"/tmp/otra-ruta/Murk.AppImage\" %F"));
         assert!(!second.contains("/tmp/primera/Murk.AppImage"));

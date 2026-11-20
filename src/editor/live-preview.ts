@@ -115,16 +115,25 @@ function insideCode(state: EditorState, position: number): boolean {
 
 function insideBlockMath(state: EditorState, position: number): boolean {
   const line = state.doc.lineAt(position);
-  let markers = 0;
+  let dollars = 0;
+  let brackets = 0;
 
   for (let number = 1; number <= line.number; number += 1) {
     const current = state.doc.line(number);
-    if (current.text.trim() === "$$" && !insideCode(state, current.from)) {
-      markers += 1;
+    const trimmed = current.text.trim();
+    if (insideCode(state, current.from)) {
+      continue;
+    }
+    if (trimmed === "$$") {
+      dollars += 1;
+    } else if (trimmed === "\\[") {
+      brackets += 1;
+    } else if (trimmed === "\\]" && brackets > 0) {
+      brackets -= 1;
     }
   }
 
-  return markers % 2 === 1;
+  return dollars % 2 === 1 || brackets > 0;
 }
 
 export function buildPreviewDecorations(
@@ -446,6 +455,31 @@ export function buildPreviewDecorations(
       continue;
     }
     ranges.push(Decoration.replace({ widget: new MathWidget(match[1], false) }).range(start, end));
+    atomicRanges.push(Decoration.replace({}).range(start, end));
+  }
+
+  // Delimitadores estilo MathJax: \( ... \) en línea y \[ ... \] en bloque.
+  const parenMath = /\\\(([^\n]+?)\\\)/g;
+  while ((match = parenMath.exec(visible)) !== null) {
+    const start = from + match.index;
+    const end = start + match[0].length;
+    if (touches(start, end) || insideCode(state, start) || insideBlockMath(state, start)) {
+      continue;
+    }
+    ranges.push(Decoration.replace({ widget: new MathWidget(match[1], false) }).range(start, end));
+    atomicRanges.push(Decoration.replace({}).range(start, end));
+  }
+
+  // \[ ... \] en una sola línea: en varias líneas lo resuelve el campo de
+  // widgets de bloque, porque un reemplazo normal no puede cruzar líneas.
+  const bracketMath = /\\\[([^\n]+?)\\\]/g;
+  while ((match = bracketMath.exec(visible)) !== null) {
+    const start = from + match.index;
+    const end = start + match[0].length;
+    if (touches(start, end) || insideCode(state, start) || insideBlockMath(state, start)) {
+      continue;
+    }
+    ranges.push(Decoration.replace({ widget: new MathWidget(match[1], true) }).range(start, end));
     atomicRanges.push(Decoration.replace({}).range(start, end));
   }
 
