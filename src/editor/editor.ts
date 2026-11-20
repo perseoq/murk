@@ -15,6 +15,7 @@ import {
   HighlightStyle,
   bracketMatching,
   defaultHighlightStyle,
+  forceParsing,
   indentOnInput,
   indentUnit,
   syntaxHighlighting,
@@ -241,6 +242,23 @@ export class MurkEditor {
     this.view.setState(state);
     this.currentTabId = tabId;
     this.applyCompartments(readOnly);
+    this.scheduleSyntaxRefresh();
+  }
+
+  /**
+   * Al abrir una pestaña el árbol de sintaxis puede estar a medias y los
+   * widgets de bloque (tablas, Mermaid) no se dibujan. Forzamos el análisis
+   * del viewport y un refresco para que aparezcan de inmediato; el resto del
+   * documento se completa con los avisos del parser.
+   */
+  private scheduleSyntaxRefresh(): void {
+    requestAnimationFrame(() => {
+      if (!this.view.dom.isConnected) {
+        return;
+      }
+      forceParsing(this.view, Math.min(this.view.state.doc.length, 6000), 100);
+      this.refresh();
+    });
   }
 
   private applyCompartments(readOnly: boolean): void {

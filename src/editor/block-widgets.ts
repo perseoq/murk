@@ -6,7 +6,6 @@ import { EditorState, RangeSet, StateField, type Range } from "@codemirror/state
 import { Decoration, EditorView, type DecorationSet } from "@codemirror/view";
 import type { SyntaxNode } from "@lezer/common";
 
-import { refreshEffect } from "./effects";
 import { MathWidget } from "./widgets/math";
 import { MermaidWidget, isDarkTheme } from "./widgets/mermaid";
 import { TableWidget } from "./widgets/table";
@@ -164,7 +163,7 @@ export const blockWidgetsField = StateField.define<BlockWidgetResult>({
       transaction.selection ||
       transaction.startState.facet(EditorState.readOnly) !==
         transaction.state.facet(EditorState.readOnly) ||
-      transaction.effects.some((effect) => effect.is(refreshEffect))
+      transaction.effects.length > 0
     ) {
       return buildBlockDecorations(transaction.state);
     }

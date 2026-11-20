@@ -1,5 +1,15 @@
 # Changelog
 
+## 1.2.1795178073 - 2026-11-20
+
+### Correcciones
+
+- Las barras de desplazamiento usan un pulgar gris claro (`#9e9e9e`), visible
+  en tema claro y oscuro.
+- **Mermaid y tablas se renderizan al abrir**: se fuerza el análisis del
+  viewport al activar una pestaña y los widgets de bloque se recalculan cuando
+  el parser avanza, en lugar de esperar a un cambio de documento o selección.
+
 ## 1.2.1795147921 - 2026-11-20
 
 ### Correcciones

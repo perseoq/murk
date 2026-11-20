@@ -13,7 +13,6 @@ import {
 } from "@codemirror/view";
 import type { SyntaxNode } from "@lezer/common";
 
-import { refreshEffect } from "./effects";
 import { CheckboxWidget } from "./widgets/checkbox";
 import { ImageWidget, resolveImagePath } from "./widgets/image";
 import { MathWidget } from "./widgets/math";
@@ -78,9 +77,7 @@ class LivePreviewPlugin {
       update.selectionSet ||
       update.viewportChanged ||
       update.startState.facet(EditorState.readOnly) !== update.state.facet(EditorState.readOnly) ||
-      update.transactions.some((transaction) =>
-        transaction.effects.some((effect) => effect.is(refreshEffect)),
-      )
+      update.transactions.some((transaction) => transaction.effects.length > 0)
     ) {
       const result = buildPreviewDecorations(update.view.state, update.view.viewport);
       this.decorations = result.decorations;
