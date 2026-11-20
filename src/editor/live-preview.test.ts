@@ -13,11 +13,11 @@ interface Collected {
   widgets: number;
 }
 
-function collect(doc: string, cursor = doc.length): Collected {
+function collect(doc: string, cursor = doc.length, readOnly = false): Collected {
   const state = EditorState.create({
     doc,
     selection: { anchor: cursor },
-    extensions: [markdown({ base: markdownLanguage })],
+    extensions: [markdown({ base: markdownLanguage }), EditorState.readOnly.of(readOnly)],
   });
   const result = buildPreviewDecorations(state, { from: 0, to: state.doc.length });
 
@@ -50,6 +50,23 @@ describe("live preview (A4)", () => {
     const inside = collect(doc, 4);
     expect(inside.atomic).toEqual([]);
     expect(inside.classes).toContain("cm-md-h1");
+  });
+
+  it("en solo lectura renderiza todo aunque el cursor esté encima", () => {
+    const doc = "# Título\n\ntexto";
+
+    const editing = collect(doc, 4);
+    expect(editing.atomic).toEqual([]);
+
+    const reading = collect(doc, 4, true);
+    expect(reading.atomic).toEqual([[0, 2]]);
+    expect(reading.classes).toContain("cm-md-h1");
+
+    const emphasis = collect("**fuerte** y *énfasis*\n\ntexto", 4, true);
+    expect(emphasis.atomic).toContainEqual([0, 2]);
+    expect(emphasis.atomic).toContainEqual([8, 10]);
+    expect(emphasis.atomic).toContainEqual([13, 14]);
+    expect(emphasis.atomic).toContainEqual([21, 22]);
   });
 
   it("oculta las marcas de énfasis y fuerte", () => {

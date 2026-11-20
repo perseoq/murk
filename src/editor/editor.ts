@@ -245,6 +245,7 @@ export class MurkEditor {
 
   private applyCompartments(readOnly: boolean): void {
     this.readOnly = readOnly;
+    this.view.dom.classList.toggle("murk-readonly", readOnly);
     this.view.dispatch({
       effects: [
         this.tabSizeCompartment.reconfigure(EditorState.tabSize.of(this.tabSize)),
@@ -255,7 +256,7 @@ export class MurkEditor {
         ]),
         this.spellcheckCompartment.reconfigure(this.spellcheckAttributes()),
         this.formatKeymapCompartment.reconfigure(
-          Prec.high(keymap.of(formatKeymap(this.keybindings))),
+          readOnly ? [] : Prec.high(keymap.of(formatKeymap(this.keybindings))),
         ),
         this.previewCompartment.reconfigure(
           this.sourceMode ? [] : [livePreview, livePreviewAtomicRanges, blockWidgetsField],
@@ -312,6 +313,9 @@ export class MurkEditor {
 
   /** Muestra el Markdown sin decoraciones de vista previa (modo código). */
   setSourceMode(enabled: boolean): void {
+    if (this.readOnly && enabled) {
+      return;
+    }
     if (this.sourceMode === enabled) {
       return;
     }
@@ -346,6 +350,9 @@ export class MurkEditor {
   }
 
   format(action: FormatAction): boolean {
+    if (this.readOnly) {
+      return false;
+    }
     return applyFormat(this.view, action);
   }
 
@@ -397,18 +404,30 @@ export class MurkEditor {
   }
 
   insertTable(): boolean {
+    if (this.readOnly) {
+      return false;
+    }
     return insertTableCommand(this.view);
   }
 
   tableAction(action: TableAction): boolean {
+    if (this.readOnly) {
+      return false;
+    }
     return runTableAction(this.view, action);
   }
 
   undo(): boolean {
+    if (this.readOnly) {
+      return false;
+    }
     return undo(this.view);
   }
 
   redo(): boolean {
+    if (this.readOnly) {
+      return false;
+    }
     return redo(this.view);
   }
 

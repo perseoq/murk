@@ -102,6 +102,9 @@ export function computeFormatEdit(state: EditorState, action: FormatAction): For
 }
 
 export function applyFormat(view: EditorView, action: FormatAction): boolean {
+  if (view.state.readOnly) {
+    return false;
+  }
   const edit = computeFormatEdit(view.state, action);
   view.dispatch({
     changes: { from: edit.from, to: edit.to, insert: edit.insert },

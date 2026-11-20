@@ -946,6 +946,27 @@ body.resizing {
   color: var(--murk-accent);
 }
 
+.status-icon-button:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.status-icon-button:disabled:hover {
+  background: transparent;
+  color: var(--murk-muted);
+}
+
+/* Modo lectura: sin cursor de edición ni revelado de Markdown. */
+.murk-readonly .cm-cursor,
+.murk-readonly .cm-dropCursor {
+  display: none;
+}
+
+.murk-readonly .cm-content {
+  cursor: default;
+  caret-color: transparent;
+}
+
 .menu-layer,
 .modal-layer {
   position: fixed;

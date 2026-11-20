@@ -41,6 +41,10 @@ Chromium (o `texlive-xetex` con el motor Pandoc).
 - `Ctrl+/` alterna modo fuente. `F8` enfoque, `F9` máquina de escribir.
 - La barra de estado incluye botones SVG para **código fuente** (`Ctrl+/`),
   **editor con vista previa** y **solo lectura**; el botón activo queda resaltado.
+- El **modo lectura** bloquea la edición y muestra siempre el Markdown
+  renderizado: no revela las marcas fuente al pasar el cursor, oculta el cursor
+  de texto y desactiva el botón de código fuente, los atajos de formato y las
+  acciones de tabla.
 - Buscar `Ctrl+F`, buscar en archivos `Ctrl+Shift+F`, reemplazar `Ctrl+H`.
 - Guardar `Ctrl+S`; guardar como `Ctrl+Shift+S`.
 

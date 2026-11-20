@@ -41,6 +41,8 @@ const mocks = vi.hoisted(() => ({
   close: vi.fn(),
   destroy: vi.fn(),
   onCloseRequested: vi.fn(),
+  editorReadOnly: [] as boolean[],
+  editorSourceMode: [] as boolean[],
 }));
 
 vi.mock("../editor/editor", () => {
@@ -82,8 +84,12 @@ vi.mock("../editor/editor", () => {
       this.onChange(content);
     }
 
-    setReadOnly(): void {}
-    setSourceMode(): void {}
+    setReadOnly(readOnly: boolean): void {
+      mocks.editorReadOnly.push(readOnly);
+    }
+    setSourceMode(enabled: boolean): void {
+      mocks.editorSourceMode.push(enabled);
+    }
     setTabSize(): void {}
     setSpellcheck(): void {}
     setKeybindings(): void {}
@@ -167,6 +173,8 @@ describe("Shell · flujo abrir → editar → guardar", () => {
 
   beforeEach(() => {
     document.body.innerHTML = '<div id="app"></div>';
+    mocks.editorReadOnly.length = 0;
+    mocks.editorSourceMode.length = 0;
     mocks.settingsLoad.mockResolvedValue(null);
     mocks.sessionLoad.mockResolvedValue(null);
     mocks.settingsSave.mockResolvedValue(undefined);
@@ -420,12 +428,29 @@ describe("Shell · flujo abrir → editar → guardar", () => {
     expect(editor.getAttribute("aria-pressed")).toBe("true");
     expect(code.getAttribute("aria-pressed")).toBe("false");
 
+    // Entrar en solo lectura desde el modo código debe forzar la vista
+    // renderizada y bloquear el botón de código.
+    code.click();
+    expect(code.getAttribute("aria-pressed")).toBe("true");
+
     readOnly.click();
     expect(readOnly.getAttribute("aria-pressed")).toBe("true");
     expect(readOnly.classList.contains("active")).toBe(true);
+    expect(editor.getAttribute("aria-pressed")).toBe("true");
+    expect(code.getAttribute("aria-pressed")).toBe("false");
+    expect(code.disabled).toBe(true);
+
+    expect(mocks.editorReadOnly.at(-1)).toBe(true);
+    expect(mocks.editorSourceMode.at(-1)).toBe(false);
+
+    code.click();
+    expect(code.getAttribute("aria-pressed")).toBe("false");
+    expect(editor.getAttribute("aria-pressed")).toBe("true");
 
     readOnly.click();
     expect(readOnly.getAttribute("aria-pressed")).toBe("false");
+    expect(code.disabled).toBe(false);
+    expect(mocks.editorReadOnly.at(-1)).toBe(false);
   });
 
   it("abre el modal de repositorio y guarda la configuración", async () => {

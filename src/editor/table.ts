@@ -312,6 +312,9 @@ function formatTable(view: EditorView, ctx: TableContext): boolean {
 }
 
 export function insertTable(view: EditorView): boolean {
+  if (view.state.readOnly) {
+    return false;
+  }
   const { state } = view;
   const selection = state.selection.main;
   const text = serializeTable(["Columna 1", "Columna 2"], [["", ""]], ["default", "default"]);
@@ -335,6 +338,9 @@ export function insertTable(view: EditorView): boolean {
 }
 
 export function nextCell(view: EditorView): boolean {
+  if (view.state.readOnly) {
+    return false;
+  }
   const ctx = tableAt(view.state, view.state.selection.main.head);
   if (!ctx) {
     return false;
@@ -385,6 +391,9 @@ export function previousCell(view: EditorView): boolean {
 }
 
 export function nextRow(view: EditorView): boolean {
+  if (view.state.readOnly) {
+    return false;
+  }
   const ctx = tableAt(view.state, view.state.selection.main.head);
   if (!ctx) {
     return false;
@@ -427,6 +436,9 @@ export type TableAction =
   | "format";
 
 export function runTableAction(view: EditorView, action: TableAction): boolean {
+  if (view.state.readOnly) {
+    return false;
+  }
   const ctx = tableAt(view.state, view.state.selection.main.head);
   if (!ctx) {
     return false;
@@ -575,6 +587,9 @@ export function handleTablePaste(event: ClipboardEvent, view: EditorView): boole
 }
 
 export function insertCellBreak(view: EditorView): boolean {
+  if (view.state.readOnly) {
+    return false;
+  }
   const context = tableAt(view.state, view.state.selection.main.head);
   if (!context) {
     return false;

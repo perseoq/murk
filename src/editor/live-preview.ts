@@ -77,6 +77,7 @@ class LivePreviewPlugin {
       update.docChanged ||
       update.selectionSet ||
       update.viewportChanged ||
+      update.startState.facet(EditorState.readOnly) !== update.state.facet(EditorState.readOnly) ||
       update.transactions.some((transaction) =>
         transaction.effects.some((effect) => effect.is(refreshEffect)),
       )
@@ -134,8 +135,11 @@ export function buildPreviewDecorations(
   const ranges: Range<Decoration>[] = [];
   const atomicRanges: Range<Decoration>[] = [];
 
+  // En solo lectura nada debe revelar el Markdown fuente: se renderiza todo
+  // aunque el cursor esté encima.
+  const readOnly = state.facet(EditorState.readOnly);
   const touches = (from: number, to: number): boolean =>
-    state.selection.ranges.some((range) => range.from <= to && range.to >= from);
+    !readOnly && state.selection.ranges.some((range) => range.from <= to && range.to >= from);
 
   const hide = (from: number, to: number): void => {
     if (to <= from) {

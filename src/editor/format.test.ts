@@ -2,9 +2,10 @@
 // Copyright (C) 2026 Murk contributors
 
 import { EditorState } from "@codemirror/state";
+import type { EditorView } from "@codemirror/view";
 import { describe, expect, it } from "vitest";
 
-import { computeFormatEdit, formatKeymap } from "./format";
+import { applyFormat, computeFormatEdit, formatKeymap } from "./format";
 
 function state(doc: string, from: number, to = from): EditorState {
   return EditorState.create({ doc, selection: { anchor: from, head: to } });
@@ -51,5 +52,27 @@ describe("formato inline", () => {
 
     const custom = formatKeymap({ "format.bold": "Ctrl+Alt+B" });
     expect(custom[0].key).toBe("Mod-Alt-b");
+  });
+
+  it("no aplica formato en solo lectura", () => {
+    let state = EditorState.create({
+      doc: "hola",
+      selection: { anchor: 0, head: 4 },
+      extensions: [EditorState.readOnly.of(true)],
+    });
+    const view = {
+      get state() {
+        return state;
+      },
+      dispatch(transaction: { state: EditorState }) {
+        state = transaction.state;
+      },
+      focus() {
+        /* sin efecto */
+      },
+    } as unknown as EditorView;
+
+    expect(applyFormat(view, "bold")).toBe(false);
+    expect(state.doc.toString()).toBe("hola");
   });
 });

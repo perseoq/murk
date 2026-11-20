@@ -10,6 +10,10 @@
   modificados.
 - El overlay de los modales cubre toda la ventana.
 - Contraste corregido en las opciones de los selectores nativos.
+- El **modo lectura** ahora bloquea de verdad el documento: al activarlo fuerza
+  la vista renderizada (aunque estuvieras en modo código), no revela las marcas
+  Markdown al posicionar el cursor y desactiva el botón de código, los atajos de
+  formato y las acciones de tabla.
 
 ### Mejoras
 

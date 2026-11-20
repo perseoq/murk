@@ -1410,7 +1410,7 @@ export class Shell {
 
     setImageDocumentPath(tab.path);
     this.editor.activate(tab.id, tab.content, tab.cursor, tab.readOnly || this.viewReadOnly);
-    this.editor.setSourceMode(this.viewMode === "code");
+    this.editor.setSourceMode(this.viewMode === "code" && !this.viewReadOnly);
     this.editor.scrollToRatio(tab.scroll);
   }
 
@@ -1853,6 +1853,10 @@ export class Shell {
   }
 
   private setViewMode(mode: "editor" | "code"): void {
+    if (mode === "code" && this.viewReadOnly) {
+      this.toast("Desactiva el modo lectura para ver el código fuente.");
+      return;
+    }
     if (this.viewMode === mode) {
       return;
     }
@@ -1863,13 +1867,17 @@ export class Shell {
 
   private toggleReadOnlyView(): void {
     this.viewReadOnly = !this.viewReadOnly;
+    if (this.viewReadOnly) {
+      // El modo lectura siempre muestra el Markdown renderizado.
+      this.viewMode = "editor";
+    }
     this.applyViewState();
     this.toast(this.viewReadOnly ? "Solo lectura activado." : "Edición habilitada.");
   }
 
   private applyViewState(): void {
     const tab = this.workspace.active;
-    this.editor.setSourceMode(this.viewMode === "code");
+    this.editor.setSourceMode(this.viewMode === "code" && !this.viewReadOnly);
     this.editor.setReadOnly((tab?.readOnly ?? false) || this.viewReadOnly);
     this.updateViewModeButtons();
   }
@@ -1881,6 +1889,10 @@ export class Shell {
     this.statusModeCode.classList.toggle("active", this.viewMode === "code");
     this.statusModeEditor.classList.toggle("active", this.viewMode === "editor");
     this.statusModeReadOnly.classList.toggle("active", this.viewReadOnly);
+    this.statusModeCode.disabled = this.viewReadOnly;
+    this.statusModeCode.title = this.viewReadOnly
+      ? "Desactiva el modo lectura para ver el código fuente"
+      : "Ver código fuente (Ctrl+/)";
   }
 
   private docId(tab: Tab): string {
