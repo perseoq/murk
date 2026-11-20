@@ -5,6 +5,7 @@ import type { EditorView } from "@codemirror/view";
 import { WidgetType } from "@codemirror/view";
 
 import type { Alignment, CellData, TableData } from "../table";
+import { emptyRow, serializeTable } from "../table";
 import { setTableWidths } from "../frontmatter";
 
 function inline(text: string): DocumentFragment {
@@ -254,7 +255,81 @@ export class TableWidget extends WidgetType {
     }
     table.append(body);
 
+    const addRow = (): void => {
+      const last = this.table.rowLines.at(-1) ?? this.table.separatorLine;
+      const line = view.state.doc.line(last);
+      view.dispatch({ changes: { from: line.to, insert: `\n${emptyRow(columns)}` } });
+    };
+
+    const addColumn = (): void => {
+      const header = this.table.header.map((cell) => cell.text);
+      const rows = this.table.rows.map((row) => row.map((cell) => cell.text));
+      header.push("Columna");
+      for (const row of rows) {
+        row.push("");
+      }
+      const text = serializeTable(header, rows, [...this.table.alignments, "default"]);
+      view.dispatch({ changes: { from: this.table.from, to: this.table.to, insert: text } });
+      if (widths.length > 0) {
+        setTableWidths(view, this.index, [...widths, 160]);
+      }
+    };
+
+    const removeRow = (): void => {
+      const last = this.table.rowLines.at(-1);
+      if (last === undefined) {
+        return;
+      }
+      const line = view.state.doc.line(last);
+      view.dispatch({
+        changes: { from: line.from > 0 ? line.from - 1 : line.from, to: line.to },
+      });
+    };
+
+    const removeColumn = (): void => {
+      if (columns <= 1) {
+        return;
+      }
+      const header = this.table.header.map((cell) => cell.text).slice(0, -1);
+      const rows = this.table.rows.map((row) => row.map((cell) => cell.text).slice(0, -1));
+      const text = serializeTable(header, rows, this.table.alignments.slice(0, -1));
+      view.dispatch({ changes: { from: this.table.from, to: this.table.to, insert: text } });
+      if (widths.length > 0) {
+        setTableWidths(view, this.index, widths.slice(0, -1));
+      }
+    };
+
+    const toolbar = document.createElement("div");
+    toolbar.className = "cm-md-table-toolbar";
+    const addButton = (
+      label: string,
+      title: string,
+      action: () => void,
+      disabled = false,
+    ): void => {
+      const button = document.createElement("button");
+      button.type = "button";
+      button.textContent = label;
+      button.title = title;
+      button.disabled = disabled;
+      button.addEventListener("mousedown", (event) => event.stopPropagation());
+      button.addEventListener("click", (event) => {
+        event.preventDefault();
+        event.stopPropagation();
+        action();
+      });
+      toolbar.append(button);
+    };
+
+    addButton("+ Fila", "Añadir una fila al final", addRow);
+    addButton("+ Columna", "Añadir una columna a la derecha", addColumn);
+    addButton("− Fila", "Eliminar la última fila", removeRow, this.table.rows.length === 0);
+    addButton("− Columna", "Eliminar la última columna", removeColumn, columns <= 1);
+
     wrap.append(table);
+    if (editable) {
+      wrap.append(toolbar);
+    }
     return wrap;
   }
 

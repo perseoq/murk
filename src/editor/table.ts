@@ -185,7 +185,7 @@ export function serializeTable(
   return [formatRow(headerCells), delimiter, ...dataRows.map(formatRow)].join("\n");
 }
 
-function emptyRow(columns: number): string {
+export function emptyRow(columns: number): string {
   return `| ${Array.from({ length: columns }, () => "  ").join(" | ")} |`;
 }
 

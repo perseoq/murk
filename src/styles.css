@@ -866,6 +866,40 @@ body.resizing {
   opacity: 0.45;
 }
 
+.cm-md-table-toolbar {
+  display: flex;
+  gap: 6px;
+  justify-content: flex-end;
+  margin-top: 4px;
+}
+
+.cm-md-table-toolbar button {
+  padding: 2px 8px;
+  border: 1px solid var(--murk-border);
+  border-radius: 5px;
+  background: var(--murk-bg);
+  color: var(--murk-muted);
+  font-family: var(--murk-font);
+  font-size: 11px;
+  line-height: 1.6;
+  cursor: pointer;
+}
+
+.cm-md-table-toolbar button:hover:not(:disabled) {
+  border-color: var(--murk-accent);
+  color: var(--murk-fg);
+}
+
+.cm-md-table-toolbar button:focus-visible {
+  outline: 2px solid var(--murk-accent);
+  outline-offset: 1px;
+}
+
+.cm-md-table-toolbar button:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
 .cm-md-frontmatter {
   display: block;
   margin: 0.4em 0 0.8em;

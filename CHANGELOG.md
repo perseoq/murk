@@ -1,5 +1,15 @@
 # Changelog
 
+## 1.2.1795183629 - 2026-11-20
+
+### Tablas
+
+- La tabla renderizada incluye una **barra de acciones** con `+ Fila`,
+  `+ Columna`, `− Fila` y `− Columna`, para cambiar la estructura sin pasar al
+  código fuente.
+- Al añadir una columna se conserva el ancho guardado y se asigna uno por
+  defecto a la nueva; al quitarla se elimina también su ancho.
+
 ## 1.2.1795182102 - 2026-11-20
 
 ### Correcciones

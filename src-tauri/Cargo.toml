@@ -1,6 +1,6 @@
 [package]
 name = "murk"
-version = "1.2.1795182102"
+version = "1.2.1795183629"
 description = "Editor de Markdown con preview en vivo"
 authors = ["Rodrigo Quintanar <djperseo@outlook.es>"]
 license = "GPL-3.0-or-later"

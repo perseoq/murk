@@ -107,6 +107,57 @@ describe("widget de tabla", () => {
     expect(tableElement?.style.width).toBe("320px");
   });
 
+  it("añade filas y columnas desde la barra de la tabla", () => {
+    const { state, table } = build();
+    const { view, changes } = fakeView(state);
+    const widget = new TableWidget(table, "tabla", 0);
+    const element = widget.toDOM(view);
+    document.body.append(element);
+
+    const button = (label: string): HTMLButtonElement | undefined =>
+      Array.from(element.querySelectorAll<HTMLButtonElement>("button")).find((entry) =>
+        entry.textContent?.includes(label),
+      );
+
+    button("+ Fila")?.click();
+    expect(changes[0]).toMatchObject({ insert: "\n|    |    |" });
+
+    button("+ Columna")?.click();
+    expect(changes[1]).toMatchObject({ from: table.from, to: table.to });
+    const added = (changes[1] as { insert: string }).insert;
+    expect(added).toContain("Columna");
+    expect(added.split("\n")[0].split("|")).toHaveLength(5);
+
+    button("− Fila")?.click();
+    const lastRow = state.doc.line(table.rowLines.at(-1) ?? table.separatorLine);
+    expect(changes[2]).toMatchObject({ from: lastRow.from - 1, to: lastRow.to });
+
+    button("− Columna")?.click();
+    const removed = (changes[3] as { insert: string }).insert;
+    expect(removed).not.toContain("Columna");
+    expect(removed.split("\n")[0].split("|")).toHaveLength(3);
+
+    element.remove();
+  });
+
+  it("deshabilita quitar fila cuando no hay filas de datos", () => {
+    const { state, table } = build();
+    const onlyHeader: TableData = { ...table, rows: [], rowLines: [] };
+    const { view } = fakeView(state);
+    const element = new TableWidget(onlyHeader, "tabla", 0).toDOM(view);
+    const button = Array.from(element.querySelectorAll<HTMLButtonElement>("button")).find((entry) =>
+      entry.textContent?.includes("− Fila"),
+    );
+    expect(button?.disabled).toBe(true);
+  });
+
+  it("no muestra la barra de acciones en solo lectura", () => {
+    const { state, table } = build(true);
+    const { view } = fakeView(state);
+    const element = new TableWidget(table, "tabla", 0).toDOM(view);
+    expect(element.querySelector(".cm-md-table-toolbar")).toBeNull();
+  });
+
   it("no es editable en solo lectura", () => {
     const { state, table } = build(true);
     const { view } = fakeView(state);
