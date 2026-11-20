@@ -1,5 +1,14 @@
 # Changelog
 
+## 1.2.1795192054 - 2026-11-20
+
+### Correcciones
+
+- Los marcadores personalizados de las listas (flechas, palomitas, puntos
+  negros/blancos y numeraciones) se ven en la vista previa del editor. El
+  widget de lista ahora pinta el marcador calculado en lugar de mostrar siempre
+  `•`; solo se veían al exportar porque el CSS de exportación sí los aplicaba.
+
 ## 1.2.1795188918 - 2026-11-20
 
 ### Correcciones

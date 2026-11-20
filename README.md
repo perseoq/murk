@@ -4,7 +4,7 @@
 Escribe en Markdown y ve el resultado renderizado al instante, con tablas,
 matemáticas, diagramas, imágenes y exportación a varios formatos.
 
-- **Versión:** 1.2.1795188918
+- **Versión:** 1.2.1795192054
 - **Plataforma:** Linux x86_64 (`.deb`, `.rpm` y AppImage)
 - **Licencia:** GNU General Public License v3.0 o posterior
 
@@ -35,20 +35,20 @@ Descarga el paquete desde la página de
 ### Debian, Ubuntu y derivados
 
 ```bash
-sudo apt install ./Murk_1.2.1795188918_amd64.deb
+sudo apt install ./Murk_1.2.1795192054_amd64.deb
 ```
 
 ### Fedora, RHEL y derivados
 
 ```bash
-sudo dnf install ./Murk-1.2.1795188918-1.x86_64.rpm
+sudo dnf install ./Murk-1.2.1795192054-1.x86_64.rpm
 ```
 
 ### AppImage (cualquier distribución)
 
 ```bash
-chmod +x Murk_1.2.1795188918_amd64.AppImage
-./Murk_1.2.1795188918_amd64.AppImage
+chmod +x Murk_1.2.1795192054_amd64.AppImage
+./Murk_1.2.1795192054_amd64.AppImage
 ```
 
 La AppImage se integra en el menú de aplicaciones la primera vez que se

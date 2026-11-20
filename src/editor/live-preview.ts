@@ -35,7 +35,7 @@ class ListMarkWidget extends WidgetType {
   toDOM(): HTMLElement {
     const span = document.createElement("span");
     span.className = this.ordered ? "cm-md-list-number" : "cm-md-list-bullet";
-    span.textContent = this.ordered ? this.text : "•";
+    span.textContent = this.text;
     return span;
   }
 }
@@ -422,7 +422,7 @@ export function buildPreviewDecorations(
         const ordered = parentName === "OrderedList";
         const current = listStack.at(-1);
         const style = current === undefined ? undefined : listStyles[String(current)];
-        let display = marker;
+        let display = ordered ? marker : "•";
 
         if (style) {
           if (ordered && style.marker) {
