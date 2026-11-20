@@ -1,5 +1,13 @@
 # Changelog
 
+## 1.2.1795199376 - 2026-11-20
+
+### Bloques de código
+
+- La cabecera ya no lleva la línea gris inferior y el bloque respira mejor:
+  padding de 18 px a los lados, 12 px arriba y 16 px abajo, con una cabecera de
+  fondo ligeramente distinto y esquinas redondeadas.
+
 ## 1.2.1795197575 - 2026-11-20
 
 ### Bloques de código
