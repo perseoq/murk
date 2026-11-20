@@ -5,7 +5,7 @@
   color-scheme: light dark;
   --murk-bg: #f4f6f8;
   --murk-surface: #ffffff;
-  --murk-fg: #1f2328;
+  --murk-fg: #000000;
   --murk-muted: #59636e;
   --murk-border: #d8dee4;
   --murk-hover: #eef1f4;
@@ -22,6 +22,7 @@
   --murk-code-operator: #0184bc;
   --murk-code-variable: #e45649;
   --murk-code-meta: #986801;
+  --murk-code-header-bg: color-mix(in srgb, var(--murk-code-bg) 88%, var(--murk-fg) 12%);
   --murk-danger: #cf222e;
   --murk-shadow: 0 18px 48px rgb(15 23 42 / 18%);
   --murk-font: "Inter", "Noto Sans", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
@@ -708,28 +709,40 @@ body.resizing {
   font-size: 0.9em;
 }
 
-.cm-md-code-line {
+/* Las reglas del tema de CodeMirror (.cm-line) tienen más especificidad que
+   una clase suelta; se refuerzan para que el padding del código se aplique. */
+.cm-editor .cm-content .cm-md-code-line {
   padding: 4px 18px;
   background: var(--murk-code-bg);
   font-family: var(--murk-mono);
   font-size: 0.9em;
 }
 
-.cm-md-code-first {
+.cm-editor .cm-content .cm-md-code-first {
   padding-top: 12px;
 }
 
-.cm-md-code-last {
+.cm-editor .cm-content .cm-md-code-last {
   padding-bottom: 16px;
   border-radius: 0 0 10px 10px;
 }
 
-.cm-md-code-header {
+.cm-editor .cm-content .cm-md-code-header {
   position: relative;
   min-height: 34px;
   padding: 6px 18px;
-  background: color-mix(in srgb, var(--murk-code-bg) 88%, var(--murk-fg) 12%);
+  background: var(--murk-code-header-bg);
   border-radius: 10px 10px 0 0;
+}
+
+.cm-editor .cm-content .cm-md-code-line.cm-activeLine,
+.cm-editor .cm-content .cm-md-code-header.cm-activeLine,
+.cm-editor .cm-content .cm-md-code-line:hover {
+  background: var(--murk-code-bg);
+}
+
+.cm-editor .cm-content .cm-md-code-header.cm-activeLine {
+  background: var(--murk-code-header-bg);
 }
 
 .cm-md-code-header-content {
@@ -782,12 +795,12 @@ body.resizing {
 .cm-md-list-bullet {
   display: inline-block;
   width: 1.1ch;
-  color: var(--murk-accent);
+  color: var(--murk-fg);
   text-align: center;
 }
 
 .cm-md-list-number {
-  color: var(--murk-accent);
+  color: var(--murk-fg);
   font-variant-numeric: tabular-nums;
 }
 

@@ -1,5 +1,17 @@
 # Changelog
 
+## 1.2.1795200487 - 2026-11-20
+
+### Correcciones
+
+- El padding interno de los bloques de código vuelve a aplicarse: las reglas del
+  tema de CodeMirror lo anulaban por especificidad. Ahora el texto respira 18 px
+  a los lados, 12 px arriba y 16 px abajo.
+- La línea activa o bajo el ratón en un bloque de código conserva el fondo gris
+  claro; ya no se vuelve blanca.
+- El texto base del tema claro es negro; solo los enlaces van en azul. El código
+  en línea y los marcadores de lista dejan de usar el azul.
+
 ## 1.2.1795199376 - 2026-11-20
 
 ### Bloques de código

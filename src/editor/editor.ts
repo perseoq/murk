@@ -87,9 +87,9 @@ const markdownHighlight = HighlightStyle.define([
   { tag: tags.emphasis, fontStyle: "italic" },
   { tag: tags.strikethrough, textDecoration: "line-through" },
   { tag: [tags.link, tags.url], color: "var(--murk-accent)" },
-  { tag: tags.monospace, fontFamily: "var(--murk-mono)", color: "var(--murk-accent)" },
-  { tag: tags.quote, color: "var(--murk-muted)", fontStyle: "italic" },
-  { tag: tags.list, color: "var(--murk-accent)" },
+  { tag: tags.monospace, fontFamily: "var(--murk-mono)", color: "var(--murk-fg)" },
+  { tag: tags.quote, color: "var(--murk-fg)", fontStyle: "italic" },
+  { tag: tags.list, color: "var(--murk-fg)" },
   { tag: [tags.processingInstruction, tags.contentSeparator], color: "var(--murk-muted)" },
   { tag: tags.escape, color: "var(--murk-muted)" },
 ]);
