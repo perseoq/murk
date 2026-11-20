@@ -822,6 +822,7 @@ body.resizing {
 .cm-md-table-wrap {
   margin: 0.8em 0;
   overflow-x: auto;
+  overflow-y: hidden;
 }
 
 .cm-md-table-wrap .cm-md-table {
@@ -834,6 +835,10 @@ body.resizing {
   padding: 6px 10px;
   border: 1px solid var(--murk-border);
   vertical-align: top;
+}
+
+.cm-md-table th {
+  padding-right: 18px;
 }
 
 .cm-md-table [contenteditable="true"] {
@@ -849,7 +854,7 @@ body.resizing {
 .cm-md-table-resize {
   position: absolute;
   top: 0;
-  right: -4px;
+  right: 0;
   z-index: 2;
   width: 8px;
   height: 100%;

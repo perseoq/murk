@@ -1,5 +1,13 @@
 # Changelog
 
+## 1.2.1795182102 - 2026-11-20
+
+### Correcciones
+
+- La tabla ya no muestra una barra de desplazamiento horizontal cuando cabe en
+  el ancho disponible: el tirador de redimensionado queda dentro de la celda y
+  solo aparece scroll si la tabla realmente es más ancha.
+
 ## 1.2.1795180585 - 2026-11-20
 
 ### Tablas editables
