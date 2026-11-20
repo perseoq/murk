@@ -14,6 +14,7 @@ import {
 import type { SyntaxNode } from "@lezer/common";
 
 import { CheckboxWidget } from "./widgets/checkbox";
+import { CodeHeaderWidget } from "./widgets/code";
 import { ImageWidget, resolveImagePath } from "./widgets/image";
 import { MathWidget } from "./widgets/math";
 import { bulletChar, itemOrdinal, listsFromState, orderedMarker } from "./list-style";
@@ -309,12 +310,22 @@ export function buildPreviewDecorations(
 
         const marks = node.node.getChildren("CodeMark");
         const codeText = node.node.getChild("CodeText");
+        const code = codeText ? doc.sliceString(codeText.from, codeText.to) : "";
 
         if (codeText) {
+          let first = true;
           for (let position = codeText.from; position <= codeText.to;) {
             const current = doc.lineAt(Math.min(position, doc.length));
             if (current.to >= from && current.from <= to) {
-              ranges.push(Decoration.line({ class: "cm-md-code-line" }).range(current.from));
+              const classes = ["cm-md-code-line"];
+              if (first) {
+                classes.push("cm-md-code-first");
+                first = false;
+              }
+              if (current.to >= codeText.to) {
+                classes.push("cm-md-code-last");
+              }
+              ranges.push(Decoration.line({ class: classes.join(" ") }).range(current.from));
             }
             if (current.to + 1 > codeText.to) {
               break;
@@ -323,17 +334,21 @@ export function buildPreviewDecorations(
           }
         }
 
-        if (!touches(node.from, node.to)) {
-          const opening = doc.lineAt(node.from);
-          hide(opening.from, opening.to);
-          ranges.push(Decoration.line({ class: "cm-md-collapsed-line" }).range(opening.from));
+        const opening = doc.lineAt(node.from);
+        hide(opening.from, opening.to);
+        ranges.push(Decoration.line({ class: "cm-md-code-header" }).range(opening.from));
+        ranges.push(
+          Decoration.widget({
+            widget: new CodeHeaderWidget(language, code.trimEnd(), readOnly),
+            side: 1,
+          }).range(opening.to),
+        );
 
-          const closing = marks.length > 0 ? marks[marks.length - 1] : null;
-          if (closing && closing.from > opening.to) {
-            const closingLine = doc.lineAt(closing.from);
-            hide(closingLine.from, closingLine.to);
-            ranges.push(Decoration.line({ class: "cm-md-collapsed-line" }).range(closingLine.from));
-          }
+        const closing = marks.length > 0 ? marks[marks.length - 1] : null;
+        if (closing && closing.from > opening.to) {
+          const closingLine = doc.lineAt(closing.from);
+          hide(closingLine.from, closingLine.to);
+          ranges.push(Decoration.line({ class: "cm-md-collapsed-line" }).range(closingLine.from));
         }
         return;
       }

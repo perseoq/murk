@@ -55,6 +55,33 @@ import {
   type TableAction,
 } from "./table";
 
+const codeHighlight = HighlightStyle.define([
+  {
+    tag: [tags.keyword, tags.controlKeyword, tags.moduleKeyword, tags.operatorKeyword],
+    color: "var(--murk-code-keyword)",
+  },
+  { tag: [tags.string, tags.special(tags.string)], color: "var(--murk-code-string)" },
+  {
+    tag: [tags.comment, tags.lineComment, tags.blockComment, tags.docComment],
+    color: "var(--murk-code-comment)",
+    fontStyle: "italic",
+  },
+  { tag: [tags.number, tags.bool, tags.null, tags.atom], color: "var(--murk-code-number)" },
+  {
+    tag: [tags.function(tags.variableName), tags.function(tags.propertyName)],
+    color: "var(--murk-code-function)",
+  },
+  { tag: [tags.typeName, tags.className, tags.namespace], color: "var(--murk-code-type)" },
+  { tag: tags.operator, color: "var(--murk-code-operator)" },
+  {
+    tag: [tags.variableName, tags.propertyName, tags.attributeName],
+    color: "var(--murk-code-variable)",
+  },
+  { tag: tags.tagName, color: "var(--murk-code-keyword)" },
+  { tag: [tags.meta, tags.processingInstruction], color: "var(--murk-code-meta)" },
+  { tag: [tags.punctuation, tags.bracket, tags.separator], color: "var(--murk-muted)" },
+]);
+
 const markdownHighlight = HighlightStyle.define([
   { tag: tags.strong, fontWeight: "700" },
   { tag: tags.emphasis, fontStyle: "italic" },
@@ -190,6 +217,7 @@ export class MurkEditor {
       ]),
       markdown({ base: markdownLanguage, codeLanguages: languages }),
       syntaxHighlighting(defaultHighlightStyle, { fallback: true }),
+      syntaxHighlighting(codeHighlight),
       syntaxHighlighting(markdownHighlight),
       this.previewCompartment.of([livePreview, livePreviewAtomicRanges, blockWidgetsField]),
       placeholder("Empieza a escribir en Markdown…"),

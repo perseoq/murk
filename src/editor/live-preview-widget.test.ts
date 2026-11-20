@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 // Copyright (C) 2026 Murk contributors
 
+import { ensureSyntaxTree } from "@codemirror/language";
 import { markdown, markdownLanguage } from "@codemirror/lang-markdown";
 import { EditorState } from "@codemirror/state";
 import { describe, expect, it } from "vitest";
@@ -14,6 +15,7 @@ function markers(doc: string): string[] {
     selection: { anchor: doc.length },
     extensions: [markdown({ base: markdownLanguage })],
   });
+  ensureSyntaxTree(state, state.doc.length, 5000);
   const result = buildPreviewDecorations(state, { from: 0, to: state.doc.length });
   const texts: string[] = [];
 

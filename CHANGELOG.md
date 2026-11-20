@@ -1,5 +1,18 @@
 # Changelog
 
+## 1.2.1795197575 - 2026-11-20
+
+### Bloques de código
+
+- **Padding interno** en el bloque y una cabecera superior con separación
+  respecto al código.
+- **Resaltado por lenguaje** según la valla (`java`, `php`, `javascript`, etc.)
+  con una paleta específica para tema claro y oscuro: palabras clave, cadenas,
+  comentarios, números, funciones, tipos, operadores y variables.
+- En **modo edición** la esquina superior derecha muestra el **lenguaje** del
+  bloque. En **solo lectura** muestra un botón **Copiar** que copia el bloque
+  completo al portapapeles (con respaldo para navegadores sin Clipboard API).
+
 ## 1.2.1795195353 - 2026-11-20
 
 ### Correcciones

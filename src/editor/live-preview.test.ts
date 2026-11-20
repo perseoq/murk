@@ -96,6 +96,13 @@ describe("live preview (A4)", () => {
     expect(result.classes).toContain("cm-md-link");
   });
 
+  it("marca el encabezado y los extremos del bloque de código", () => {
+    const result = collect("```js\nconst x = 1;\n```\n\ntexto");
+    expect(result.classes).toContain("cm-md-code-header");
+    expect(result.classes.some((name) => name.includes("cm-md-code-first"))).toBe(true);
+    expect(result.classes.some((name) => name.includes("cm-md-code-last"))).toBe(true);
+  });
+
   it("marca las líneas de lista para aplicar estilos", () => {
     const result = collect("- uno\n- dos\n");
     expect(result.classes).toContain("cm-md-list-item");
@@ -130,7 +137,7 @@ describe("live preview (A4)", () => {
     expect(result.classes).toContain("cm-md-inline-code");
   });
 
-  it("colapsa las vallas de un bloque de código y las revela al entrar", () => {
+  it("colapsa las vallas y mantiene la cabecera del bloque", () => {
     const doc = "```js\nconst x = 1;\n```\n\ntexto";
     const outside = collect(doc);
 
@@ -138,13 +145,16 @@ describe("live preview (A4)", () => {
       [0, 5],
       [19, 22],
     ]);
-    expect(outside.classes.filter((name) => name === "cm-md-collapsed-line")).toHaveLength(2);
-    expect(outside.classes).toContain("cm-md-code-line");
+    expect(outside.classes.filter((name) => name === "cm-md-collapsed-line")).toHaveLength(1);
+    expect(outside.classes).toContain("cm-md-code-header");
+    expect(outside.classes.some((name) => name.includes("cm-md-code-line"))).toBe(true);
 
     const inside = collect(doc, 10);
-    expect(inside.atomic).toEqual([]);
-    expect(inside.classes).not.toContain("cm-md-collapsed-line");
-    expect(inside.classes).toContain("cm-md-code-line");
+    expect(inside.atomic).toEqual([
+      [0, 5],
+      [19, 22],
+    ]);
+    expect(inside.classes).toContain("cm-md-code-header");
   });
 
   it("reemplaza las viñetas por widgets", () => {

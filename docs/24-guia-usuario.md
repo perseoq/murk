@@ -13,7 +13,7 @@ Artefactos disponibles en GitHub Releases:
 También existe un `.tar.gz` portable. En Fedora:
 
 ```bash
-sudo dnf install murk-1.2.1795195353.x86_64.rpm
+sudo dnf install murk-1.2.1795197575.x86_64.rpm
 ```
 
 La AppImage se integra sola en el menú al ejecutarla por primera vez: copia su
@@ -57,6 +57,13 @@ Chromium (o `texlive-xetex` con el motor Pandoc).
   flechas, palomitas, puntos negros/blancos; `a)`, `A)`, `I)`, `I.`, `1.`, `1)`.
 - Ambos estilos se guardan en el frontmatter YAML y se aplican al editor, a las
   exportaciones HTML/PDF y a Word.
+
+## Bloques de código
+
+- El lenguaje indicado en la valla activa el resaltado de sintaxis.
+- La cabecera del bloque muestra el lenguaje en modo edición.
+- En **solo lectura** la cabecera muestra **Copiar** para copiar el bloque
+  entero.
 
 ## Tablas
 
