@@ -11,6 +11,8 @@
 - Al **añadir una columna**, todas las filas reciben su celda. Las celdas vacías
   se conservan con un marcador invisible porque el parser GFM omite las celdas
   vacías al final de una fila; el editor las muestra y las trata como vacías.
+- Las filas y celdas vacías mantienen la altura de una línea, también antes de
+  escribir en ellas.
 
 ## 1.2.1795187255 - 2026-11-20
 
