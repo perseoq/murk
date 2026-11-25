@@ -1,5 +1,15 @@
 # Changelog
 
+## 1.2.1795566370 - 2026-11-24
+
+### Correcciones
+
+- **Compilación:** se eliminó una sentencia inválida a nivel de módulo en
+  `lib.rs` que impedía compilar el backend y se condicionó la integración de
+  escritorio a Linux con `#[cfg(target_os = "linux")]`.
+- **Pruebas:** los tests que usan permisos POSIX o rutas absolutas Unix ahora se
+  ejecutan solo en plataformas `unix`, así `cargo test` pasa también en Windows.
+
 ## 1.2.1795202493 - 2026-11-20
 
 ### Correcciones

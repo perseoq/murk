@@ -481,6 +481,7 @@ mod tests {
         assert_eq!(read, value);
     }
 
+    #[cfg(unix)]
     #[test]
     fn overwrite_keeps_permissions() {
         use std::os::unix::fs::PermissionsExt;

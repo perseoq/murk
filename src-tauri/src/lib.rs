@@ -20,6 +20,7 @@ mod workspace;
 /// Arranca la aplicación Murk.
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
+    #[cfg(target_os = "linux")]
     integration::integrate_desktop();
     let cwd = std::env::current_dir().unwrap_or_default();
     let arguments: Vec<String> = std::env::args().skip(1).collect();

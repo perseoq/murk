@@ -438,6 +438,7 @@ mod tests {
         assert!(list_snapshots(directory.path()).expect("listar").is_empty());
     }
 
+    #[cfg(unix)]
     #[test]
     fn history_dedupes_identical_content() {
         let directory = tempfile::tempdir().expect("tempdir");
