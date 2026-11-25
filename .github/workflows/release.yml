@@ -5,16 +5,30 @@ on:
     tags:
       - "v*"
   workflow_dispatch:
+    inputs:
+      tag:
+        description: "Tag a publicar (por ejemplo v1.2.1795566370)"
+        required: true
 
 permissions:
   contents: write
 
 jobs:
   release:
-    name: Construir y publicar
-    runs-on: ubuntu-24.04
+    name: Construir y publicar (${{ matrix.platform }})
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - platform: ubuntu-24.04
+            bundles: ""
+          - platform: windows-latest
+            bundles: "--bundles nsis"
+    runs-on: ${{ matrix.platform }}
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.inputs.tag || github.ref }}
 
       - uses: actions/setup-node@v4
         with:
@@ -30,7 +44,8 @@ jobs:
         with:
           workspaces: src-tauri -> target
 
-      - name: Dependencias de Tauri
+      - name: Dependencias de Tauri (Linux)
+        if: matrix.platform == 'ubuntu-24.04'
         run: |
           sudo apt-get update
           sudo apt-get install -y \
@@ -49,12 +64,12 @@ jobs:
           TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
           TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
         with:
-          tagName: ${{ github.ref_name }}
-          releaseName: "Murk ${{ github.ref_name }}"
+          tagName: ${{ github.event.inputs.tag || github.ref_name }}
+          releaseName: "Murk ${{ github.event.inputs.tag || github.ref_name }}"
           releaseBody: |
-            Release de Murk ${{ github.ref_name }}.
+            Release de Murk ${{ github.event.inputs.tag || github.ref_name }}.
 
-            Incluye paquetes .deb, .rpm y AppImage, además de las firmas de actualización.
+            Incluye paquetes .deb, .rpm y AppImage (Linux) y un instalador NSIS (Windows), además de las firmas de actualización.
           releaseDraft: true
           prerelease: false
-          args: --config src-tauri/tauri.release.conf.json
+          args: ${{ matrix.bundles }} --config src-tauri/tauri.release.conf.json

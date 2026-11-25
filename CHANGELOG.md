@@ -1,5 +1,15 @@
 # Changelog
 
+## 1.2.1795568182 - 2026-11-24
+
+### Empaquetado
+
+- La CI de release ahora también publica un **instalador NSIS para Windows**
+  (`Murk_<version>_x64-setup.exe`), además de los paquetes `.deb`, `.rpm` y
+  AppImage de Linux, con firmas de actualización para ambas plataformas.
+- El workflow de release admite `workflow_dispatch` para republicar un tag
+  existente indicando su nombre.
+
 ## 1.2.1795566370 - 2026-11-24
 
 ### Correcciones
